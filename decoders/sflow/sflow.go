@@ -2,11 +2,8 @@ package sflow
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
-	"github.com/cloudflare/goflow/decoders"
 	"github.com/cloudflare/goflow/decoders/utils"
-	"net"
 )
 
 const (
@@ -19,42 +16,62 @@ const (
 	FORMAT_IPV6        = 4
 )
 
-type BaseMessage struct {
-	Src     net.IP
-	Port    int
-	Payload []byte
+type ErrorDecodingSFlow struct {
+	msg string
 }
 
-type BaseMessageDecoded struct {
-	Version uint32
-	Src     net.IP
-	Port    int
-	Packet  decoder.MessageDecoded
-}
-
-type DecoderConfig struct {
-}
-
-func CreateConfig() DecoderConfig {
-	config := DecoderConfig{}
-	return config
-}
-
-func DecodePacket(msg decoder.Message, config decoder.DecoderConfig) (decoder.MessageDecoded, error) {
-	baseMsg := msg.(BaseMessage)
-	payload := bytes.NewBuffer(baseMsg.Payload)
-
-	version, msgDecoded, err := DecodeMessage(payload, config)
-
-	baseMsgDecoded := BaseMessageDecoded{
-		Version: version,
-		Src:     baseMsg.Src,
-		Port:    baseMsg.Port,
-		Packet:  msgDecoded,
+func NewErrorDecodingSFlow(msg string) *ErrorDecodingSFlow {
+	return &ErrorDecodingSFlow{
+		msg: msg,
 	}
-
-	return baseMsgDecoded, err
 }
+
+func (e *ErrorDecodingSFlow) Error() string {
+	return fmt.Sprintf("Error decoding sFlow: %v", e.msg)
+}
+
+type ErrorDataFormat struct {
+	dataformat uint32
+}
+
+func NewErrorDataFormat(dataformat uint32) *ErrorDataFormat {
+	return &ErrorDataFormat{
+		dataformat: dataformat,
+	}
+}
+
+func (e *ErrorDataFormat) Error() string {
+	return fmt.Sprintf("Unknown data format %v", e.dataformat)
+}
+
+type ErrorIPVersion struct {
+	version uint32
+}
+
+func NewErrorIPVersion(version uint32) *ErrorIPVersion {
+	return &ErrorIPVersion{
+		version: version,
+	}
+}
+
+func (e *ErrorIPVersion) Error() string {
+	return fmt.Sprintf("Unknown IP version: %v", e.version)
+}
+
+type ErrorVersion struct {
+	version uint32
+}
+
+func NewErrorVersion(version uint32) *ErrorVersion {
+	return &ErrorVersion{
+		version: version,
+	}
+}
+
+func (e *ErrorVersion) Error() string {
+	return fmt.Sprintf("Unknown sFlow version %v (supported v5)", e.version)
+}
+
 
 func DecodeCounterRecord(header *RecordHeader, payload *bytes.Buffer) (CounterRecord, error) {
 	counterRecord := CounterRecord{
@@ -70,9 +87,8 @@ func DecodeCounterRecord(header *RecordHeader, payload *bytes.Buffer) (CounterRe
 		utils.BinaryDecoder(payload, &ethernetCounters)
 		counterRecord.Data = ethernetCounters
 	default:
-		return counterRecord, errors.New(fmt.Sprintf("Unknown data format %v.", (*header).DataFormat))
+		return counterRecord, NewErrorDataFormat((*header).DataFormat)
 	}
-	//fmt.Printf("%v\n", counterRecord)
 
 	return counterRecord, nil
 }
@@ -86,12 +102,12 @@ func DecodeIP(payload *bytes.Buffer) (uint32, []byte, error) {
 	} else if ipVersion == 2 {
 		ip = make([]byte, 16)
 	} else {
-		return ipVersion, ip, errors.New(fmt.Sprintf("Unknown Next Hop IP version %v.", ipVersion))
+		return ipVersion, ip, NewErrorIPVersion(ipVersion)
 	}
 	if payload.Len() >= len(ip) {
 		utils.BinaryDecoder(payload, &ip)
 	} else {
-		return ipVersion, ip, errors.New(fmt.Sprintf("Not enough data: %v, needs %v.", payload.Len(), len(ip)))
+		return ipVersion, ip, NewErrorDecodingSFlow(fmt.Sprintf("Not enough data: %v, needs %v.", payload.Len(), len(ip)))
 	}
 	return ipVersion, ip, nil
 }
@@ -157,7 +173,7 @@ func DecodeFlowRecord(header *RecordHeader, payload *bytes.Buffer) (FlowRecord, 
 		if extendedGateway.ASDestinations != 0 {
 			utils.BinaryDecoder(payload, &(extendedGateway.ASPathType), &(extendedGateway.ASPathLength))
 			if int(extendedGateway.ASPathLength) > payload.Len()-4 {
-				return flowRecord, errors.New(fmt.Sprintf("Invalid AS path length.", extendedGateway.ASPathLength))
+				return flowRecord, NewErrorDecodingSFlow(fmt.Sprintf("Invalid AS path length.", extendedGateway.ASPathLength))
 			}
 			asPath = make([]uint32, extendedGateway.ASPathLength)
 			if len(asPath) > 0 {
@@ -168,7 +184,7 @@ func DecodeFlowRecord(header *RecordHeader, payload *bytes.Buffer) (FlowRecord, 
 
 		utils.BinaryDecoder(payload, &(extendedGateway.CommunitiesLength))
 		if int(extendedGateway.CommunitiesLength) > payload.Len()-4 {
-			return flowRecord, errors.New(fmt.Sprintf("Invalid Communities length.", extendedGateway.ASPathLength))
+			return flowRecord, NewErrorDecodingSFlow(fmt.Sprintf("Invalid Communities length.", extendedGateway.ASPathLength))
 		}
 		communities := make([]uint32, extendedGateway.CommunitiesLength)
 		if len(communities) > 0 {
@@ -179,15 +195,12 @@ func DecodeFlowRecord(header *RecordHeader, payload *bytes.Buffer) (FlowRecord, 
 
 		flowRecord.Data = extendedGateway
 	default:
-		return flowRecord, errors.New(fmt.Sprintf("Unknown data format %v.", (*header).DataFormat))
+		return flowRecord, NewErrorDecodingSFlow(fmt.Sprintf("Unknown data format %v.", (*header).DataFormat))
 	}
-	/*if((*header).DataFormat == 1002) {
-	    fmt.Printf("%v\n", flowRecord)
-	}*/
 	return flowRecord, nil
 }
 
-func DecodeSample(header *SampleHeader, payload *bytes.Buffer, config decoder.DecoderConfig) (interface{}, error) {
+func DecodeSample(header *SampleHeader, payload *bytes.Buffer) (interface{}, error) {
 	format := (*header).Format
 	var sample interface{}
 
@@ -201,7 +214,7 @@ func DecodeSample(header *SampleHeader, payload *bytes.Buffer, config decoder.De
 	} else if format == FORMAT_IPV4 || format == FORMAT_IPV6 {
 		utils.BinaryDecoder(payload, &((*header).SourceIdType), &((*header).SourceIdValue))
 	} else {
-		return nil, errors.New(fmt.Sprintf("Unknown format %v.", format))
+		return nil, NewErrorDataFormat(format)
 	}
 
 	var recordsCount uint32
@@ -261,11 +274,10 @@ func DecodeSample(header *SampleHeader, payload *bytes.Buffer, config decoder.De
 			counterSample.Records[i] = record
 		}
 	}
-	//fmt.Printf("%v\n", sample)
 	return sample, nil
 }
 
-func DecodeMessage(payload *bytes.Buffer, config decoder.DecoderConfig) (uint32, decoder.MessageDecoded, error) {
+func DecodeMessage(payload *bytes.Buffer) (interface{}, error) {
 	var version uint32
 	utils.BinaryDecoder(payload, &version)
 	packetV5 := Packet{}
@@ -280,7 +292,7 @@ func DecodeMessage(payload *bytes.Buffer, config decoder.DecoderConfig) (uint32,
 			ip = make([]byte, 16)
 			utils.BinaryDecoder(payload, ip)
 		} else {
-			return version, nil, errors.New(fmt.Sprintf("Unknown IP version %v.", packetV5.IPVersion))
+			return nil, NewErrorIPVersion(packetV5.IPVersion)
 		}
 
 		packetV5.AgentIP = ip
@@ -294,33 +306,17 @@ func DecodeMessage(payload *bytes.Buffer, config decoder.DecoderConfig) (uint32,
 			}
 			sampleReader := bytes.NewBuffer(payload.Next(int(header.Length)))
 
-			sample, err := DecodeSample(&header, sampleReader, config)
+			sample, err := DecodeSample(&header, sampleReader)
 			if err != nil {
-				// log
 				continue
 			} else {
 				packetV5.Samples[i] = sample
 			}
 		}
 
-		//fmt.Printf("%v\n", packetV5)
-		return version, packetV5, nil
+		return packetV5, nil
 	} else {
-		return version, nil, errors.New(fmt.Sprintf("Unknown version %v.", version))
+		return nil, NewErrorVersion(version)
 	}
-	return version, nil, nil
-}
-
-func CreateProcessor(numWorkers int, decoderConfig DecoderConfig, doneCallback decoder.DoneCallback, callbackArgs decoder.CallbackArgs, errorCallback decoder.ErrorCallback) decoder.Processor {
-
-	decoderParams := decoder.DecoderParams{
-		DecoderFunc:   DecodePacket,
-		DecoderConfig: decoderConfig,
-		DoneCallback:  doneCallback,
-		CallbackArgs:  callbackArgs,
-		ErrorCallback: errorCallback,
-	}
-	processor := decoder.CreateProcessor(numWorkers, decoderParams, "sFlow")
-
-	return processor
+	return nil, nil
 }
