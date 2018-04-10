@@ -72,7 +72,6 @@ func (e *ErrorVersion) Error() string {
 	return fmt.Sprintf("Unknown sFlow version %v (supported v5)", e.version)
 }
 
-
 func DecodeCounterRecord(header *RecordHeader, payload *bytes.Buffer) (CounterRecord, error) {
 	counterRecord := CounterRecord{
 		Header: *header,

@@ -9,7 +9,7 @@ import (
 
 type KafkaState struct {
 	producer sarama.AsyncProducer
-	topic string
+	topic    string
 }
 
 func StartKafkaProducer(addrs []string, topic string) *KafkaState {

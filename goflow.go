@@ -40,15 +40,15 @@ var (
 	SAddr = flag.String("saddr", ":", "sFlow listening address")
 	SPort = flag.Int("sport", 6343, "sFlow listening port")
 
-	FWorkers     = flag.Int("fworkers", 1, "Number of NetFlow workers")
-	SWorkers     = flag.Int("sworkers", 1, "Number of sFlow workers")
-	LogLevel     = flag.String("loglevel", "info", "Log level")
-	LogFmt       = flag.String("logfmt", "normal", "Log formatter")
+	FWorkers = flag.Int("fworkers", 1, "Number of NetFlow workers")
+	SWorkers = flag.Int("sworkers", 1, "Number of sFlow workers")
+	LogLevel = flag.String("loglevel", "info", "Log level")
+	LogFmt   = flag.String("logfmt", "normal", "Log formatter")
 
-	EnableKafka     = flag.Bool("kafka", true, "Enable Kafka")
-	MetricsAddr     = flag.String("metrics.addr", ":8080", "Metrics address")
-	MetricsPath     = flag.String("metrics.path", "/metrics", "Metrics path")
-	TemplatePath    = flag.String("templates.path", "/templates", "NetFlow/IPFIX templates list")
+	EnableKafka  = flag.Bool("kafka", true, "Enable Kafka")
+	MetricsAddr  = flag.String("metrics.addr", ":8080", "Metrics address")
+	MetricsPath  = flag.String("metrics.path", "/metrics", "Metrics path")
+	TemplatePath = flag.String("templates.path", "/templates", "NetFlow/IPFIX templates list")
 
 	KafkaTopic = flag.String("kafka.out.topic", "flow-messages", "Kafka topic to produce to")
 	KafkaSrv   = flag.String("kafka.out.srv", "", "SRV record containing a list of Kafka brokers (or use kafka.out.brokers)")
@@ -121,6 +121,10 @@ func (s *state) decodeNetFlow(msg interface{}) error {
 	buf := bytes.NewBuffer(pkt.Payload)
 
 	key := pkt.Src.String()
+	routerAddr := pkt.Src
+	if routerAddr.To4() != nil {
+		routerAddr = routerAddr.To4()
+	}
 
 	s.templateslock.RLock()
 	templates, ok := s.templates[key]
@@ -261,6 +265,7 @@ func (s *state) decodeNetFlow(msg interface{}) error {
 
 		for _, fmsg := range flowMessageSet {
 			fmsg.TimeRecvd = uint64(time.Now().UTC().Unix())
+			fmsg.RouterAddr = routerAddr
 			timeDiff := fmsg.TimeRecvd - fmsg.TimeFlow
 			NetFlowTimeStatsSum.With(
 				prometheus.Labels{
@@ -353,6 +358,7 @@ func (s *state) decodeNetFlow(msg interface{}) error {
 
 		for _, fmsg := range flowMessageSet {
 			fmsg.TimeRecvd = uint64(time.Now().UTC().Unix())
+			fmsg.RouterAddr = routerAddr
 			timeDiff := fmsg.TimeRecvd - fmsg.TimeFlow
 			NetFlowTimeStatsSum.With(
 				prometheus.Labels{
@@ -362,7 +368,7 @@ func (s *state) decodeNetFlow(msg interface{}) error {
 				Observe(float64(timeDiff))
 		}
 	}
-	
+
 	timeTrackStop := time.Now()
 	DecoderTime.With(
 		prometheus.Labels{
@@ -479,6 +485,10 @@ func (s *state) decodeSflow(msg interface{}) error {
 	pkt := msg.(BaseMessage)
 	buf := bytes.NewBuffer(pkt.Payload)
 	key := pkt.Src.String()
+	routerAddr := pkt.Src
+	if routerAddr.To4() != nil {
+		routerAddr = routerAddr.To4()
+	}
 
 	timeTrackStart := time.Now()
 	msgDec, err := sflow.DecodeMessage(buf)
@@ -580,6 +590,7 @@ func (s *state) decodeSflow(msg interface{}) error {
 	for _, fmsg := range flowMessageSet {
 		fmsg.TimeRecvd = ts
 		fmsg.TimeFlow = ts
+		fmsg.RouterAddr = routerAddr
 	}
 
 	s.produceFlow(flowMessageSet)

@@ -4,13 +4,13 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"sync"
 	"github.com/cloudflare/goflow/decoders/utils"
+	"sync"
 )
 
 type FlowBaseTemplateSet map[uint16]map[uint32]map[uint16]interface{}
 
-type NetFlowTemplateSystem interface{
+type NetFlowTemplateSystem interface {
 	GetTemplate(version uint16, obsDomainId uint32, templateId uint16) (interface{}, error)
 	AddTemplate(version uint16, obsDomainId uint32, template interface{})
 }
@@ -295,13 +295,13 @@ func (ts *BasicTemplateSystem) GetTemplate(version uint16, obsDomainId uint32, t
 }
 
 type BasicTemplateSystem struct {
-	templates FlowBaseTemplateSet
+	templates     FlowBaseTemplateSet
 	templateslock *sync.RWMutex
 }
 
 func CreateTemplateSystem() *BasicTemplateSystem {
 	ts := &BasicTemplateSystem{
-		templates: make(FlowBaseTemplateSet),
+		templates:     make(FlowBaseTemplateSet),
 		templateslock: &sync.RWMutex{},
 	}
 	return ts

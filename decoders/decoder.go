@@ -8,7 +8,7 @@ import (
 type Message interface{}
 type MessageDecoded interface{}
 
-type DecoderFunc func(Message interface{}) (error)
+type DecoderFunc func(Message interface{}) error
 type DoneCallback func(string, int, time.Time, time.Time)
 type ErrorCallback func(string, int, time.Time, time.Time, error)
 
