@@ -8,52 +8,52 @@ import (
 	"github.com/cloudflare/goflow/decoders/netflow"
 	flowmessage "github.com/cloudflare/goflow/pb"
 	"net"
+	"sync"
 	"time"
-    "sync"
 )
 
-type SamplingRateSystem interface{
-    GetSamplingRate(version uint16, obsDomainId uint32) (uint32, error)
-    AddSamplingRate(version uint16, obsDomainId uint32, samplingRate uint32)
+type SamplingRateSystem interface {
+	GetSamplingRate(version uint16, obsDomainId uint32) (uint32, error)
+	AddSamplingRate(version uint16, obsDomainId uint32, samplingRate uint32)
 }
 
 type basicSamplingRateSystem struct {
-    sampling map[uint16]map[uint32]uint32
-    samplinglock *sync.RWMutex
+	sampling     map[uint16]map[uint32]uint32
+	samplinglock *sync.RWMutex
 }
 
 func CreateSamplingSystem() SamplingRateSystem {
-    ts := &basicSamplingRateSystem{
-        sampling: make(map[uint16]map[uint32]uint32),
-        samplinglock: &sync.RWMutex{},
-    }
-    return ts
+	ts := &basicSamplingRateSystem{
+		sampling:     make(map[uint16]map[uint32]uint32),
+		samplinglock: &sync.RWMutex{},
+	}
+	return ts
 }
 
 func (s *basicSamplingRateSystem) AddSamplingRate(version uint16, obsDomainId uint32, samplingRate uint32) {
-    s.samplinglock.Lock()
-    _, exists := s.sampling[version]
-    if exists != true {
-        s.sampling[version] = make(map[uint32]uint32)
-    }
-    s.sampling[version][obsDomainId] = samplingRate
-    s.samplinglock.Unlock()
+	s.samplinglock.Lock()
+	_, exists := s.sampling[version]
+	if exists != true {
+		s.sampling[version] = make(map[uint32]uint32)
+	}
+	s.sampling[version][obsDomainId] = samplingRate
+	s.samplinglock.Unlock()
 }
 
 func (s *basicSamplingRateSystem) GetSamplingRate(version uint16, obsDomainId uint32) (uint32, error) {
-    s.samplinglock.RLock()
-    samplingVersion, okver := s.sampling[version]
-    if okver {
-        samplingRate, okid := samplingVersion[obsDomainId]
-        if okid {
-            s.samplinglock.RUnlock()
-            return samplingRate, nil
-        }
-        s.samplinglock.RUnlock()
-        return 0, errors.New("") // TBC
-    }
-    s.samplinglock.RUnlock()
-    return 0, errors.New("") // TBC
+	s.samplinglock.RLock()
+	samplingVersion, okver := s.sampling[version]
+	if okver {
+		samplingRate, okid := samplingVersion[obsDomainId]
+		if okid {
+			s.samplinglock.RUnlock()
+			return samplingRate, nil
+		}
+		s.samplinglock.RUnlock()
+		return 0, errors.New("") // TBC
+	}
+	s.samplinglock.RUnlock()
+	return 0, errors.New("") // TBC
 }
 
 func NetFlowLookFor(dataFields []netflow.DataField, typeId uint16) (bool, interface{}) {
@@ -262,140 +262,140 @@ func ConvertNetFlowDataSet(version uint16, baseTime uint32, uptime uint32, recor
 
 	}
 
-    return flowMessage
+	return flowMessage
 }
 
 func SearchNetFlowDataSetsRecords(version uint16, baseTime uint32, uptime uint32, dataRecords []netflow.DataRecord) []*flowmessage.FlowMessage {
-    flowMessageSet := make([]*flowmessage.FlowMessage, 0)
-    for _, record := range dataRecords {
-        fmsg := ConvertNetFlowDataSet(version, baseTime, uptime, record.Values)
-        if fmsg != nil {
-            flowMessageSet = append(flowMessageSet, fmsg)
-        }
-    }
-    return flowMessageSet
+	flowMessageSet := make([]*flowmessage.FlowMessage, 0)
+	for _, record := range dataRecords {
+		fmsg := ConvertNetFlowDataSet(version, baseTime, uptime, record.Values)
+		if fmsg != nil {
+			flowMessageSet = append(flowMessageSet, fmsg)
+		}
+	}
+	return flowMessageSet
 }
 
 func SearchNetFlowDataSets(version uint16, baseTime uint32, uptime uint32, dataFlowSet []netflow.DataFlowSet) []*flowmessage.FlowMessage {
-    flowMessageSet := make([]*flowmessage.FlowMessage, 0)
-    for _, dataFlowSetItem := range dataFlowSet {
-        fmsg := SearchNetFlowDataSetsRecords(version, baseTime, uptime, dataFlowSetItem.Records)
-        if fmsg != nil {
-            flowMessageSet = append(flowMessageSet, fmsg...)
-        }
-    }
-    return flowMessageSet
+	flowMessageSet := make([]*flowmessage.FlowMessage, 0)
+	for _, dataFlowSetItem := range dataFlowSet {
+		fmsg := SearchNetFlowDataSetsRecords(version, baseTime, uptime, dataFlowSetItem.Records)
+		if fmsg != nil {
+			flowMessageSet = append(flowMessageSet, fmsg...)
+		}
+	}
+	return flowMessageSet
 }
 
 func SearchNetFlowOptionDataSets(dataFlowSet []netflow.OptionsDataFlowSet) (uint32, bool) {
-    var samplingRate uint32
-    var found bool
+	var samplingRate uint32
+	var found bool
 	for _, dataFlowSetItem := range dataFlowSet {
-        for _, record := range dataFlowSetItem.Records {
-            b := NetFlowPopulate(record.OptionsValues, 34, &samplingRate)
-            if b { // cannot do found |= NetFlow...
-                found = b
-            }
-        }
+		for _, record := range dataFlowSetItem.Records {
+			b := NetFlowPopulate(record.OptionsValues, 34, &samplingRate)
+			if b { // cannot do found |= NetFlow...
+				found = b
+			}
+		}
 	}
 	return samplingRate, found
 }
 
 func SplitNetFlowSets(packetNFv9 netflow.NFv9Packet) ([]netflow.DataFlowSet, []netflow.TemplateFlowSet, []netflow.NFv9OptionsTemplateFlowSet, []netflow.OptionsDataFlowSet) {
-    dataFlowSet := make([]netflow.DataFlowSet, 0)
-    templatesFlowSet := make([]netflow.TemplateFlowSet, 0)
-    optionsTemplatesFlowSet := make([]netflow.NFv9OptionsTemplateFlowSet, 0)
-    optionsDataFlowSet := make([]netflow.OptionsDataFlowSet, 0)
-    for _, flowSet := range packetNFv9.FlowSets {
-        switch flowSet.(type) {
-        case netflow.TemplateFlowSet:
-            templatesFlowSet = append(templatesFlowSet, flowSet.(netflow.TemplateFlowSet))
-        case netflow.NFv9OptionsTemplateFlowSet:
-            optionsTemplatesFlowSet = append(optionsTemplatesFlowSet, flowSet.(netflow.NFv9OptionsTemplateFlowSet))
-        case netflow.DataFlowSet:
-            dataFlowSet = append(dataFlowSet, flowSet.(netflow.DataFlowSet))
-        case netflow.OptionsDataFlowSet:
-            optionsDataFlowSet = append(optionsDataFlowSet, flowSet.(netflow.OptionsDataFlowSet))
-        }
-    }
-    return dataFlowSet, templatesFlowSet, optionsTemplatesFlowSet, optionsDataFlowSet
+	dataFlowSet := make([]netflow.DataFlowSet, 0)
+	templatesFlowSet := make([]netflow.TemplateFlowSet, 0)
+	optionsTemplatesFlowSet := make([]netflow.NFv9OptionsTemplateFlowSet, 0)
+	optionsDataFlowSet := make([]netflow.OptionsDataFlowSet, 0)
+	for _, flowSet := range packetNFv9.FlowSets {
+		switch flowSet.(type) {
+		case netflow.TemplateFlowSet:
+			templatesFlowSet = append(templatesFlowSet, flowSet.(netflow.TemplateFlowSet))
+		case netflow.NFv9OptionsTemplateFlowSet:
+			optionsTemplatesFlowSet = append(optionsTemplatesFlowSet, flowSet.(netflow.NFv9OptionsTemplateFlowSet))
+		case netflow.DataFlowSet:
+			dataFlowSet = append(dataFlowSet, flowSet.(netflow.DataFlowSet))
+		case netflow.OptionsDataFlowSet:
+			optionsDataFlowSet = append(optionsDataFlowSet, flowSet.(netflow.OptionsDataFlowSet))
+		}
+	}
+	return dataFlowSet, templatesFlowSet, optionsTemplatesFlowSet, optionsDataFlowSet
 }
 
 func SplitIPFIXSets(packetIPFIX netflow.IPFIXPacket) ([]netflow.DataFlowSet, []netflow.TemplateFlowSet, []netflow.IPFIXOptionsTemplateFlowSet, []netflow.OptionsDataFlowSet) {
-    dataFlowSet := make([]netflow.DataFlowSet, 0)
-    templatesFlowSet := make([]netflow.TemplateFlowSet, 0)
-    optionsTemplatesFlowSet := make([]netflow.IPFIXOptionsTemplateFlowSet, 0)
-    optionsDataFlowSet := make([]netflow.OptionsDataFlowSet, 0)
-    for _, flowSet := range packetIPFIX.FlowSets {
-        switch flowSet.(type) {
-        case netflow.TemplateFlowSet:
-            templatesFlowSet = append(templatesFlowSet, flowSet.(netflow.TemplateFlowSet))
-        case netflow.IPFIXOptionsTemplateFlowSet:
-            optionsTemplatesFlowSet = append(optionsTemplatesFlowSet, flowSet.(netflow.IPFIXOptionsTemplateFlowSet))
-        case netflow.DataFlowSet:
-            dataFlowSet = append(dataFlowSet, flowSet.(netflow.DataFlowSet))
-        case netflow.OptionsDataFlowSet:
-            optionsDataFlowSet = append(optionsDataFlowSet, flowSet.(netflow.OptionsDataFlowSet))
-        }
-    }
-    return dataFlowSet, templatesFlowSet, optionsTemplatesFlowSet, optionsDataFlowSet
+	dataFlowSet := make([]netflow.DataFlowSet, 0)
+	templatesFlowSet := make([]netflow.TemplateFlowSet, 0)
+	optionsTemplatesFlowSet := make([]netflow.IPFIXOptionsTemplateFlowSet, 0)
+	optionsDataFlowSet := make([]netflow.OptionsDataFlowSet, 0)
+	for _, flowSet := range packetIPFIX.FlowSets {
+		switch flowSet.(type) {
+		case netflow.TemplateFlowSet:
+			templatesFlowSet = append(templatesFlowSet, flowSet.(netflow.TemplateFlowSet))
+		case netflow.IPFIXOptionsTemplateFlowSet:
+			optionsTemplatesFlowSet = append(optionsTemplatesFlowSet, flowSet.(netflow.IPFIXOptionsTemplateFlowSet))
+		case netflow.DataFlowSet:
+			dataFlowSet = append(dataFlowSet, flowSet.(netflow.DataFlowSet))
+		case netflow.OptionsDataFlowSet:
+			optionsDataFlowSet = append(optionsDataFlowSet, flowSet.(netflow.OptionsDataFlowSet))
+		}
+	}
+	return dataFlowSet, templatesFlowSet, optionsTemplatesFlowSet, optionsDataFlowSet
 }
 
 // Convert a NetFlow datastructure to a FlowMessage protobuf
 // Does not put sampling rate
 func ProcessMessageNetFlow(msgDec interface{}, samplingRateSys SamplingRateSystem) ([]*flowmessage.FlowMessage, error) {
-    seqnum := uint32(0)
-    var baseTime uint32
-    var uptime uint32
+	seqnum := uint32(0)
+	var baseTime uint32
+	var uptime uint32
 
-    flowMessageSet := make([]*flowmessage.FlowMessage, 0)
+	flowMessageSet := make([]*flowmessage.FlowMessage, 0)
 
-    switch msgDecConv := msgDec.(type) {
-    case netflow.NFv9Packet:
-        dataFlowSet, _, _, optionDataFlowSet := SplitNetFlowSets(msgDecConv)
+	switch msgDecConv := msgDec.(type) {
+	case netflow.NFv9Packet:
+		dataFlowSet, _, _, optionDataFlowSet := SplitNetFlowSets(msgDecConv)
 
-        seqnum = msgDecConv.SequenceNumber
-        baseTime = msgDecConv.UnixSeconds
-        uptime = msgDecConv.SystemUptime
-        obsDomainId := msgDecConv.SourceId
-        
-        flowMessageSet = SearchNetFlowDataSets(9, baseTime, uptime, dataFlowSet)
-        samplingRate, found := SearchNetFlowOptionDataSets(optionDataFlowSet)
-        if samplingRateSys != nil {
-            if found {
-                samplingRateSys.AddSamplingRate(9, obsDomainId, samplingRate)
-            } else {
-                samplingRate, _ = samplingRateSys.GetSamplingRate(9, obsDomainId)
-            }
-        }
-        for _, fmsg := range flowMessageSet {
-            fmsg.SequenceNum = seqnum
-            fmsg.SamplingRate = uint64(samplingRate)
-        }
-    case netflow.IPFIXPacket:
-        dataFlowSet, _, _, optionDataFlowSet := SplitIPFIXSets(msgDecConv)
+		seqnum = msgDecConv.SequenceNumber
+		baseTime = msgDecConv.UnixSeconds
+		uptime = msgDecConv.SystemUptime
+		obsDomainId := msgDecConv.SourceId
 
-        seqnum = msgDecConv.SequenceNumber
-        baseTime = msgDecConv.ExportTime
-        obsDomainId := msgDecConv.ObservationDomainId
+		flowMessageSet = SearchNetFlowDataSets(9, baseTime, uptime, dataFlowSet)
+		samplingRate, found := SearchNetFlowOptionDataSets(optionDataFlowSet)
+		if samplingRateSys != nil {
+			if found {
+				samplingRateSys.AddSamplingRate(9, obsDomainId, samplingRate)
+			} else {
+				samplingRate, _ = samplingRateSys.GetSamplingRate(9, obsDomainId)
+			}
+		}
+		for _, fmsg := range flowMessageSet {
+			fmsg.SequenceNum = seqnum
+			fmsg.SamplingRate = uint64(samplingRate)
+		}
+	case netflow.IPFIXPacket:
+		dataFlowSet, _, _, optionDataFlowSet := SplitIPFIXSets(msgDecConv)
 
-        flowMessageSet = SearchNetFlowDataSets(10, baseTime, uptime, dataFlowSet)
+		seqnum = msgDecConv.SequenceNumber
+		baseTime = msgDecConv.ExportTime
+		obsDomainId := msgDecConv.ObservationDomainId
 
-        samplingRate, found := SearchNetFlowOptionDataSets(optionDataFlowSet)
-        if samplingRateSys != nil {
-            if found {
-                samplingRateSys.AddSamplingRate(10, obsDomainId, samplingRate)
-            } else {
-                samplingRate, _ = samplingRateSys.GetSamplingRate(10, obsDomainId)
-            }
-        }
-        for _, fmsg := range flowMessageSet {
-            fmsg.SequenceNum = seqnum
-            fmsg.SamplingRate = uint64(samplingRate)
-        }
-    default:
-        return flowMessageSet, errors.New("Bad NetFlow version")
-    }
+		flowMessageSet = SearchNetFlowDataSets(10, baseTime, uptime, dataFlowSet)
 
-    return flowMessageSet, nil
+		samplingRate, found := SearchNetFlowOptionDataSets(optionDataFlowSet)
+		if samplingRateSys != nil {
+			if found {
+				samplingRateSys.AddSamplingRate(10, obsDomainId, samplingRate)
+			} else {
+				samplingRate, _ = samplingRateSys.GetSamplingRate(10, obsDomainId)
+			}
+		}
+		for _, fmsg := range flowMessageSet {
+			fmsg.SequenceNum = seqnum
+			fmsg.SamplingRate = uint64(samplingRate)
+		}
+	default:
+		return flowMessageSet, errors.New("Bad NetFlow version")
+	}
+
+	return flowMessageSet, nil
 }
