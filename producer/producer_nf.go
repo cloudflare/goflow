@@ -292,9 +292,17 @@ func SearchNetFlowOptionDataSets(dataFlowSet []netflow.OptionsDataFlowSet) (uint
 	var found bool
 	for _, dataFlowSetItem := range dataFlowSet {
 		for _, record := range dataFlowSetItem.Records {
-			b := NetFlowPopulate(record.OptionsValues, 34, &samplingRate)
-			if b { // cannot do found |= NetFlow...
-				found = b
+			b := NetFlowPopulate(record.OptionsValues, 305, &samplingRate)
+			if b {
+				return samplingRate, b
+			}
+			b = NetFlowPopulate(record.OptionsValues, 50, &samplingRate)
+			if b {
+				return samplingRate, b
+			}
+			b = NetFlowPopulate(record.OptionsValues, 34, &samplingRate)
+			if b {
+				return samplingRate, b
 			}
 		}
 	}
