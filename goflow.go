@@ -297,7 +297,7 @@ func (s *state) decodeNetFlow(msg interface{}) error {
 					prometheus.Labels{
 						"router":  key,
 						"version": "10",
-						"type":    "OptionsTemplateFlowSet",
+						"type":    "TemplateFlowSet",
 					}).
 					Add(float64(len(fsConv.Records)))
 
@@ -485,10 +485,6 @@ func (s *state) decodeSflow(msg interface{}) error {
 	pkt := msg.(BaseMessage)
 	buf := bytes.NewBuffer(pkt.Payload)
 	key := pkt.Src.String()
-	routerAddr := pkt.Src
-	if routerAddr.To4() != nil {
-		routerAddr = routerAddr.To4()
-	}
 
 	timeTrackStart := time.Now()
 	msgDec, err := sflow.DecodeMessage(buf)
@@ -590,7 +586,6 @@ func (s *state) decodeSflow(msg interface{}) error {
 	for _, fmsg := range flowMessageSet {
 		fmsg.TimeRecvd = ts
 		fmsg.TimeFlow = ts
-		fmsg.RouterAddr = routerAddr
 	}
 
 	s.produceFlow(flowMessageSet)
