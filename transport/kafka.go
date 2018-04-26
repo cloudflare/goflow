@@ -23,6 +23,7 @@ func StartKafkaProducer(addrs []string, topic string) *KafkaState {
 	}
 	state := KafkaState{
 		producer: kafkaProducer,
+		topic: topic,
 	}
 
 	return &state
