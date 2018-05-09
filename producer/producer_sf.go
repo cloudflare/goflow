@@ -39,8 +39,8 @@ func ParseSampledHeader(flowMessage *flowmessage.FlowMessage, sampledHeader *sfl
 		var srcMac uint64
 		var dstMac uint64
 
-		srcMac = binary.BigEndian.Uint64(append([]byte{0, 0}, data[0:6]...))
-		dstMac = binary.BigEndian.Uint64(append([]byte{0, 0}, data[6:12]...))
+		dstMac = binary.BigEndian.Uint64(append([]byte{0, 0}, data[0:6]...))
+		srcMac = binary.BigEndian.Uint64(append([]byte{0, 0}, data[6:12]...))
 		(*flowMessage).SrcMac = srcMac
 		(*flowMessage).DstMac = dstMac
 
