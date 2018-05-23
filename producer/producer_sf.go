@@ -4,44 +4,9 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	log "github.com/Sirupsen/logrus"
 	"github.com/cloudflare/goflow/decoders/sflow"
 	flowmessage "github.com/cloudflare/goflow/pb"
-	"github.com/prometheus/client_golang/prometheus"
 	"net"
-	"strconv"
-	"time"
-)
-
-var (
-	SFlowStats = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "flow_process_sf_count",
-			Help: "sFlows processed.",
-		},
-		[]string{"router", "agent", "version"},
-	)
-	SFlowErrors = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "flow_process_sf_errors_count",
-			Help: "sFlows processed errors.",
-		},
-		[]string{"router", "version", "error"},
-	)
-	SFlowSampleStatsSum = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "flow_process_sf_samples_sum",
-			Help: "SFlows samples sum.",
-		},
-		[]string{"router", "agent", "version", "type"}, // counter, flow, expanded...
-	)
-	SFlowSampleRecordsStatsSum = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "flow_process_sf_samples_records_sum",
-			Help: "SFlows samples sum of records.",
-		},
-		[]string{"router", "agent", "version", "type"}, // data-template, data, opts...
-	)
 )
 
 func GetSFlowFlowSamples(packet *sflow.Packet) []interface{} {
@@ -74,8 +39,8 @@ func ParseSampledHeader(flowMessage *flowmessage.FlowMessage, sampledHeader *sfl
 		var srcMac uint64
 		var dstMac uint64
 
-		srcMac = binary.BigEndian.Uint64(append([]byte{0, 0}, data[0:6]...))
-		dstMac = binary.BigEndian.Uint64(append([]byte{0, 0}, data[6:12]...))
+		dstMac = binary.BigEndian.Uint64(append([]byte{0, 0}, data[0:6]...))
+		srcMac = binary.BigEndian.Uint64(append([]byte{0, 0}, data[6:12]...))
 		(*flowMessage).SrcMac = srcMac
 		(*flowMessage).DstMac = dstMac
 
@@ -124,27 +89,29 @@ func ParseSampledHeader(flowMessage *flowmessage.FlowMessage, sampledHeader *sfl
 			tcpflags = dataTransport[13]
 		}
 
+		// ICMP and ICMPv6
+		if len(dataTransport) >= 2 && (nextHeader == 1 || nextHeader == 58) {
+			(*flowMessage).IcmpType = uint32(dataTransport[0])
+			(*flowMessage).IcmpCode = uint32(dataTransport[1])
+		}
+
 		(*flowMessage).SrcIP = srcIP
 		(*flowMessage).DstIP = dstIP
 		(*flowMessage).Proto = uint32(nextHeader)
 		(*flowMessage).IPTos = uint32(tos)
 		(*flowMessage).IPTTL = uint32(ttl)
 		(*flowMessage).TCPFlags = uint32(tcpflags)
-
-		//fmt.Printf("TEst %v:%v %v:%v \n", srcIP.String(), (*flowMessage).SrcPort, dstIP.String(), (*flowMessage).DstPort)
 	}
 	return nil
 }
 
-func SearchSFlowSamples(router net.IP, agent net.IP, version uint32, seqnum uint32, samples []interface{}) []flowmessage.FlowMessage {
-	flowMessageSet := make([]flowmessage.FlowMessage, 0)
-	//routerStr := router.String()
-	//agentStr  := agent.String()
+func SearchSFlowSamples(samples []interface{}) []*flowmessage.FlowMessage {
+	flowMessageSet := make([]*flowmessage.FlowMessage, 0)
 
 	for _, flowSample := range samples {
 		var records []sflow.FlowRecord
 
-		flowMessage := flowmessage.FlowMessage{}
+		flowMessage := &flowmessage.FlowMessage{}
 		flowMessage.Type = flowmessage.FlowMessage_SFLOW
 
 		switch flowSample := flowSample.(type) {
@@ -160,21 +127,15 @@ func SearchSFlowSamples(router net.IP, agent net.IP, version uint32, seqnum uint
 			flowMessage.DstIf = flowSample.OutputIfValue
 		}
 
-		flowMessage.SequenceNum = seqnum
-		recvd := uint64(time.Now().Unix())
-		flowMessage.TimeRecvd = recvd
-		flowMessage.TimeFlow = recvd
-
 		ipNh := net.IP{}
 		ipSrc := net.IP{}
 		ipDst := net.IP{}
 		flowMessage.Packets = 1
-		flowMessage.RouterAddr = agent
 		for _, record := range records {
 			switch recordData := record.Data.(type) {
 			case sflow.SampledHeader:
 				flowMessage.Bytes = uint64(recordData.FrameLength)
-				ParseSampledHeader(&flowMessage, &recordData)
+				ParseSampledHeader(flowMessage, &recordData)
 			case sflow.SampledIPv4:
 				ipSrc = recordData.Base.SrcIP
 				ipDst = recordData.Base.DstIP
@@ -218,112 +179,28 @@ func SearchSFlowSamples(router net.IP, agent net.IP, version uint32, seqnum uint
 			}
 		}
 		flowMessageSet = append(flowMessageSet, flowMessage)
-		//fmt.Printf("%v\n", flowMessage.String())
 	}
 	return flowMessageSet
 }
 
-func MetricTypeSFlow(router string, agent string, version uint32, packet sflow.Packet) {
-	countMap := make(map[string]int)
-	countRecordsMap := make(map[string]int)
-	if version == 5 {
-		for _, flowSample := range packet.Samples {
-			switch flowSample := flowSample.(type) {
-			case sflow.FlowSample:
-				countMap["FlowSample"]++
-				countRecordsMap["FlowSample"] += len(flowSample.Records)
-			case sflow.CounterSample:
-				name := "CounterSample"
-				if flowSample.Header.Format == 4 {
-					name = "Expanded" + name
-				}
-				countMap[name]++
-				countRecordsMap[name] += len(flowSample.Records)
-			case sflow.ExpandedFlowSample:
-				countMap["ExpandedFlowSample"]++
-				countRecordsMap["ExpandedFlowSample"] += len(flowSample.Records)
-			}
-		}
-	}
+func ProcessMessageSFlow(msgDec interface{}) ([]*flowmessage.FlowMessage, error) {
+	switch packet := msgDec.(type) {
+	case sflow.Packet:
+		seqnum := packet.SequenceNumber
+		var agent net.IP
+		agent = packet.AgentIP
 
-	for keyType := range countMap {
-		SFlowSampleStatsSum.With(
-			prometheus.Labels{
-				"router":  router,
-				"agent":   agent,
-				"version": strconv.Itoa(int(version)),
-				"type":    keyType,
-			}).
-			Add(float64(countMap[keyType]))
-
-		SFlowSampleRecordsStatsSum.With(
-			prometheus.Labels{
-				"router":  router,
-				"agent":   agent,
-				"version": strconv.Itoa(int(version)),
-				"type":    keyType,
-			}).
-			Add(float64(countRecordsMap[keyType]))
-	}
-}
-
-func ProcessSFlowError(msgDec interface{}, err error, args interface{}, conf interface{}) (bool, error) {
-	return true, nil
-}
-
-func ProcessMessageSFlow(msgDec interface{}, args interface{}, conf interface{}) (bool, error) {
-	msgDecoded := msgDec.(sflow.BaseMessageDecoded)
-	packet := msgDecoded.Packet
-
-	version := msgDecoded.Version
-	router := msgDecoded.Src.String() + ":" + strconv.Itoa(msgDecoded.Port)
-	if version == 5 {
-		//fmt.Printf("%v %v %v\n", packet, router)
-		packetV5, ok := packet.(sflow.Packet)
-		args, ok2 := args.(ProcessArguments)
-		if ok && ok2 {
-			seqnum := packetV5.SequenceNumber
-			var agent net.IP
-			agent = packetV5.AgentIP
-
-			flowSamples := GetSFlowFlowSamples(&packetV5)
-			flowMessageSet := SearchSFlowSamples(msgDecoded.Src, agent, version, seqnum, flowSamples)
-
-			MetricTypeSFlow(router, agent.String(), version, packetV5)
-			SFlowStats.With(
-				prometheus.Labels{
-					"router":  router,
-					"agent":   agent.String(),
-					"version": strconv.Itoa(int(version)),
-				}).
-				Inc()
-
-			log.WithFields(log.Fields{
-				"type":               "sflow",
-				"version":            version,
-				"source":             router,
-				"seqnum":             seqnum,
-				"count_flowmessages": len(flowMessageSet),
-			}).Debug("Message processed")
-
-			for _, flowMessage := range flowMessageSet {
-				if args.KafkaState != nil {
-					args.KafkaState.SendKafkaFlowMessage(flowMessage)
-				}
-			}
+		flowSamples := GetSFlowFlowSamples(&packet)
+		flowMessageSet := SearchSFlowSamples(flowSamples)
+		for _, fmsg := range flowMessageSet {
+			fmsg.RouterAddr = agent
+			fmsg.SequenceNum = seqnum
 		}
 
-	} else {
-		SFlowErrors.With(
-			prometheus.Labels{
-				"router":  router,
-				"version": "unknown",
-				"error":   "sflow_version",
-			}).
-			Inc()
-
-		return false, errors.New(fmt.Sprintf("Bad SFlow version: %v\n", version))
+		return flowMessageSet, nil
+	default:
+		return []*flowmessage.FlowMessage{}, errors.New("Bad SFlow version")
 	}
 
-	return true, nil
+	return []*flowmessage.FlowMessage{}, nil
 }

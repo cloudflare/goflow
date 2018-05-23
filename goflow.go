@@ -1,26 +1,34 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
 	log "github.com/Sirupsen/logrus"
+	"github.com/cloudflare/goflow/decoders"
 	"github.com/cloudflare/goflow/decoders/netflow"
 	"github.com/cloudflare/goflow/decoders/sflow"
+	flowmessage "github.com/cloudflare/goflow/pb"
 	"github.com/cloudflare/goflow/producer"
+	"github.com/cloudflare/goflow/transport"
 	"net"
 	"os"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"net/http"
 
 	"encoding/json"
+
+	"bytes"
 )
 
-const AppVersion = "GoFlow v1.1.0"
+const AppVersion = "GoFlow v2.0.4"
 
 var (
 	FEnable = flag.Bool("netflow", true, "Enable NetFlow")
@@ -32,48 +40,25 @@ var (
 	SAddr = flag.String("saddr", ":", "sFlow listening address")
 	SPort = flag.Int("sport", 6343, "sFlow listening port")
 
-	SamplingRate = flag.Int("sampling", 16834, "Fixed NetFlow sampling rate (-1 to disable)")
-	FWorkers     = flag.Int("fworkers", 1, "Number of NetFlow workers")
-	SWorkers     = flag.Int("sworkers", 1, "Number of sFlow workers")
-	LogLevel     = flag.String("loglevel", "info", "Log level")
-	LogFmt       = flag.String("logfmt", "normal", "Log formatter")
+	FWorkers = flag.Int("fworkers", 1, "Number of NetFlow workers")
+	SWorkers = flag.Int("sworkers", 1, "Number of sFlow workers")
+	LogLevel = flag.String("loglevel", "info", "Log level")
+	LogFmt   = flag.String("logfmt", "normal", "Log formatter")
 
-	EnableKafka     = flag.Bool("kafka", true, "Enable Kafka")
-	UniqueTemplates = flag.Bool("uniquetemplates", false, "Unique templates (vs per-router/obs domain id) ; must have same sampling rate everywhere)")
-	MetricsAddr     = flag.String("metrics.addr", ":8080", "Metrics address")
-	MetricsPath     = flag.String("metrics.path", "/metrics", "Metrics path")
-	TemplatePath    = flag.String("templates.path", "/templates", "NetFlow/IPFIX templates list")
+	EnableKafka  = flag.Bool("kafka", true, "Enable Kafka")
+	MetricsAddr  = flag.String("metrics.addr", ":8080", "Metrics address")
+	MetricsPath  = flag.String("metrics.path", "/metrics", "Metrics path")
+	TemplatePath = flag.String("templates.path", "/templates", "NetFlow/IPFIX templates list")
+
+	KafkaTopic = flag.String("kafka.out.topic", "flow-messages", "Kafka topic to produce to")
+	KafkaSrv   = flag.String("kafka.out.srv", "", "SRV record containing a list of Kafka brokers (or use kafka.out.brokers)")
+	KafkaBrk   = flag.String("kafka.out.brokers", "127.0.0.1:9092,[::1]:9092", "Kafka brokers list separated by commas")
 
 	Version = flag.Bool("v", false, "Print version")
-
-	MetricTrafficBytes = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "flow_traffic_bytes",
-			Help: "Bytes received by the application.",
-		},
-		[]string{"remote_ip", "remote_port", "local_ip", "local_port", "type"},
-	)
-	MetricTrafficPackets = prometheus.NewCounterVec(
-		prometheus.CounterOpts{
-			Name: "flow_traffic_packets",
-			Help: "Packets received by the application.",
-		},
-		[]string{"remote_ip", "remote_port", "local_ip", "local_port", "type"},
-	)
-	MetricPacketSizeSum = prometheus.NewSummaryVec(
-		prometheus.SummaryOpts{
-			Name:       "flow_traffic_summary_size_bytes",
-			Help:       "Summary of packet size.",
-			Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
-		},
-		[]string{"remote_ip", "remote_port", "local_ip", "local_port", "type"},
-	)
 )
 
 func init() {
-	prometheus.MustRegister(MetricTrafficBytes)
-	prometheus.MustRegister(MetricTrafficPackets)
-	prometheus.MustRegister(MetricPacketSizeSum)
+	initMetrics()
 }
 
 func metricsHTTP() {
@@ -81,45 +66,356 @@ func metricsHTTP() {
 	log.Fatal(http.ListenAndServe(*MetricsAddr, nil))
 }
 
-func templatesHTTP(th TemplateHandler) {
-	http.Handle(*TemplatePath, th)
+func templatesHTTP(s *state) {
+	http.Handle(*TemplatePath, s)
 }
 
-type TemplateHandler struct {
-	Config *netflow.DecoderConfig
-}
-
-func (h TemplateHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-
-	if h.Config != nil {
-		h.Config.NetFlowV9TemplateSetLock.RLock()
-		h.Config.IPFIXTemplateSetLock.RLock()
-
-		templates := make([]map[string]map[uint32]map[uint16][]netflow.Field, 2)
-		templates[0] = h.Config.NetFlowV9TemplateSet
-		templates[1] = h.Config.IPFIXTemplateSet
-
-		enc := json.NewEncoder(w)
-		enc.Encode(templates)
-
-		h.Config.IPFIXTemplateSetLock.RUnlock()
-		h.Config.NetFlowV9TemplateSetLock.RUnlock()
-	} else {
-		log.Debugf("No config found")
+func (s *state) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	tmp := make(map[string]map[uint16]map[uint32]map[uint16]interface{})
+	s.templateslock.RLock()
+	for key, templatesrouterstr := range s.templates {
+		templatesrouter := templatesrouterstr.templates.GetTemplates()
+		tmp[key] = templatesrouter
 	}
+	s.templateslock.RUnlock()
+	enc := json.NewEncoder(w)
+	enc.Encode(tmp)
 }
 
-func netflowRoutine(processArgs *producer.ProcessArguments, wg *sync.WaitGroup) {
-	defer (*wg).Done()
+type TemplateSystem struct {
+	key       string
+	templates *netflow.BasicTemplateSystem
+}
 
-	nfConfig := netflow.CreateConfig()
-	nfConfig.UniqueTemplates = *UniqueTemplates
+func (s *TemplateSystem) AddTemplate(version uint16, obsDomainId uint32, template interface{}) {
+	s.templates.AddTemplate(version, obsDomainId, template)
 
-	th := TemplateHandler{}
-	th.Config = &nfConfig
-	go templatesHTTP(th)
+	typeStr := "options_template"
+	var templateId uint16
+	switch templateIdConv := template.(type) {
+	case netflow.IPFIXOptionsTemplateRecord:
+		templateId = templateIdConv.TemplateId
+	case netflow.NFv9OptionsTemplateRecord:
+		templateId = templateIdConv.TemplateId
+	case netflow.TemplateRecord:
+		templateId = templateIdConv.TemplateId
+		typeStr = "template"
+	}
+	NetFlowTemplatesStats.With(
+		prometheus.Labels{
+			"router":        s.key,
+			"version":       strconv.Itoa(int(version)),
+			"obs_domain_id": strconv.Itoa(int(obsDomainId)),
+			"template_id":   strconv.Itoa(int(templateId)),
+			"type":          typeStr,
+		}).
+		Inc()
+}
 
-	processor := netflow.CreateProcessor(*FWorkers, nfConfig, producer.ProcessMessageNetFlow, *processArgs, producer.ProcessNetFlowError)
+func (s *TemplateSystem) GetTemplate(version uint16, obsDomainId uint32, templateId uint16) (interface{}, error) {
+	return s.templates.GetTemplate(version, obsDomainId, templateId)
+}
+
+func (s *state) decodeNetFlow(msg interface{}) error {
+	pkt := msg.(BaseMessage)
+	buf := bytes.NewBuffer(pkt.Payload)
+
+	key := pkt.Src.String()
+	routerAddr := pkt.Src
+	if routerAddr.To4() != nil {
+		routerAddr = routerAddr.To4()
+	}
+
+	s.templateslock.RLock()
+	templates, ok := s.templates[key]
+	if !ok {
+		templates = &TemplateSystem{
+			templates: netflow.CreateTemplateSystem(),
+			key:       key,
+		}
+		s.templates[key] = templates
+	}
+	s.templateslock.RUnlock()
+	s.samplinglock.RLock()
+	sampling, ok := s.sampling[key]
+	if !ok {
+		sampling = producer.CreateSamplingSystem()
+		s.sampling[key] = sampling
+	}
+	s.samplinglock.RUnlock()
+
+	timeTrackStart := time.Now()
+	msgDec, err := netflow.DecodeMessage(buf, templates)
+	if err != nil {
+		switch err.(type) {
+		case *netflow.ErrorVersion:
+			NetFlowErrors.With(
+				prometheus.Labels{
+					"router": key,
+					"error":  "error_version",
+				}).
+				Inc()
+		case *netflow.ErrorFlowId:
+			NetFlowErrors.With(
+				prometheus.Labels{
+					"router": key,
+					"error":  "error_flow_id",
+				}).
+				Inc()
+		case *netflow.ErrorTemplateNotFound:
+			NetFlowErrors.With(
+				prometheus.Labels{
+					"router": key,
+					"error":  "template_not_found",
+				}).
+				Inc()
+		default:
+			NetFlowErrors.With(
+				prometheus.Labels{
+					"router": key,
+					"error":  "error_decoding",
+				}).
+				Inc()
+		}
+		return err
+	}
+
+	flowMessageSet := make([]*flowmessage.FlowMessage, 0)
+
+	switch msgDecConv := msgDec.(type) {
+	case netflow.NFv9Packet:
+		NetFlowStats.With(
+			prometheus.Labels{
+				"router":  key,
+				"version": "9",
+			}).
+			Inc()
+
+		for _, fs := range msgDecConv.FlowSets {
+			switch fsConv := fs.(type) {
+			case netflow.TemplateFlowSet:
+				NetFlowSetStatsSum.With(
+					prometheus.Labels{
+						"router":  key,
+						"version": "9",
+						"type":    "TemplateFlowSet",
+					}).
+					Inc()
+
+				NetFlowSetRecordsStatsSum.With(
+					prometheus.Labels{
+						"router":  key,
+						"version": "9",
+						"type":    "OptionsTemplateFlowSet",
+					}).
+					Add(float64(len(fsConv.Records)))
+
+			case netflow.NFv9OptionsTemplateFlowSet:
+				NetFlowSetStatsSum.With(
+					prometheus.Labels{
+						"router":  key,
+						"version": "9",
+						"type":    "OptionsTemplateFlowSet",
+					}).
+					Inc()
+
+				NetFlowSetRecordsStatsSum.With(
+					prometheus.Labels{
+						"router":  key,
+						"version": "9",
+						"type":    "OptionsTemplateFlowSet",
+					}).
+					Add(float64(len(fsConv.Records)))
+
+			case netflow.OptionsDataFlowSet:
+				NetFlowSetStatsSum.With(
+					prometheus.Labels{
+						"router":  key,
+						"version": "9",
+						"type":    "OptionsDataFlowSet",
+					}).
+					Inc()
+
+				NetFlowSetRecordsStatsSum.With(
+					prometheus.Labels{
+						"router":  key,
+						"version": "9",
+						"type":    "OptionsDataFlowSet",
+					}).
+					Add(float64(len(fsConv.Records)))
+			case netflow.DataFlowSet:
+				NetFlowSetStatsSum.With(
+					prometheus.Labels{
+						"router":  key,
+						"version": "9",
+						"type":    "DataFlowSet",
+					}).
+					Inc()
+
+				NetFlowSetRecordsStatsSum.With(
+					prometheus.Labels{
+						"router":  key,
+						"version": "9",
+						"type":    "DataFlowSet",
+					}).
+					Add(float64(len(fsConv.Records)))
+			}
+		}
+		flowMessageSet, err = producer.ProcessMessageNetFlow(msgDecConv, sampling)
+
+		for _, fmsg := range flowMessageSet {
+			fmsg.TimeRecvd = uint64(time.Now().UTC().Unix())
+			fmsg.RouterAddr = routerAddr
+			timeDiff := fmsg.TimeRecvd - fmsg.TimeFlow
+			NetFlowTimeStatsSum.With(
+				prometheus.Labels{
+					"router":  key,
+					"version": "9",
+				}).
+				Observe(float64(timeDiff))
+		}
+	case netflow.IPFIXPacket:
+		NetFlowStats.With(
+			prometheus.Labels{
+				"router":  key,
+				"version": "10",
+			}).
+			Inc()
+
+		for _, fs := range msgDecConv.FlowSets {
+			switch fsConv := fs.(type) {
+			case netflow.TemplateFlowSet:
+				NetFlowSetStatsSum.With(
+					prometheus.Labels{
+						"router":  key,
+						"version": "10",
+						"type":    "TemplateFlowSet",
+					}).
+					Inc()
+
+				NetFlowSetRecordsStatsSum.With(
+					prometheus.Labels{
+						"router":  key,
+						"version": "10",
+						"type":    "TemplateFlowSet",
+					}).
+					Add(float64(len(fsConv.Records)))
+
+			case netflow.IPFIXOptionsTemplateFlowSet:
+				NetFlowSetStatsSum.With(
+					prometheus.Labels{
+						"router":  key,
+						"version": "10",
+						"type":    "OptionsTemplateFlowSet",
+					}).
+					Inc()
+
+				NetFlowSetRecordsStatsSum.With(
+					prometheus.Labels{
+						"router":  key,
+						"version": "10",
+						"type":    "OptionsTemplateFlowSet",
+					}).
+					Add(float64(len(fsConv.Records)))
+
+			case netflow.OptionsDataFlowSet:
+
+				NetFlowSetStatsSum.With(
+					prometheus.Labels{
+						"router":  key,
+						"version": "10",
+						"type":    "OptionsDataFlowSet",
+					}).
+					Inc()
+
+				NetFlowSetRecordsStatsSum.With(
+					prometheus.Labels{
+						"router":  key,
+						"version": "10",
+						"type":    "OptionsDataFlowSet",
+					}).
+					Add(float64(len(fsConv.Records)))
+
+			case netflow.DataFlowSet:
+				NetFlowSetStatsSum.With(
+					prometheus.Labels{
+						"router":  key,
+						"version": "10",
+						"type":    "DataFlowSet",
+					}).
+					Inc()
+
+				NetFlowSetRecordsStatsSum.With(
+					prometheus.Labels{
+						"router":  key,
+						"version": "10",
+						"type":    "DataFlowSet",
+					}).
+					Add(float64(len(fsConv.Records)))
+			}
+		}
+		flowMessageSet, err = producer.ProcessMessageNetFlow(msgDecConv, sampling)
+
+		for _, fmsg := range flowMessageSet {
+			fmsg.TimeRecvd = uint64(time.Now().UTC().Unix())
+			fmsg.RouterAddr = routerAddr
+			timeDiff := fmsg.TimeRecvd - fmsg.TimeFlow
+			NetFlowTimeStatsSum.With(
+				prometheus.Labels{
+					"router":  key,
+					"version": "10",
+				}).
+				Observe(float64(timeDiff))
+		}
+	}
+
+	timeTrackStop := time.Now()
+	DecoderTime.With(
+		prometheus.Labels{
+			"name": "NetFlow",
+		}).
+		Observe(float64((timeTrackStop.Sub(timeTrackStart)).Nanoseconds()) / 1000)
+
+	s.produceFlow(flowMessageSet)
+
+	return nil
+}
+
+func (s *state) produceFlow(fmsgset []*flowmessage.FlowMessage) {
+	for _, fmsg := range fmsgset {
+		if s.kafkaEn {
+			s.kafkaState.SendKafkaFlowMessage(fmsg)
+		}
+		if s.debug {
+			log.Debugf("Packet received: %v", fmsg)
+		}
+	}
+
+}
+
+type BaseMessage struct {
+	Src     net.IP
+	Port    int
+	Payload []byte
+}
+
+func (s *state) netflowRoutine() {
+	go templatesHTTP(s)
+
+	s.templates = make(map[string]*TemplateSystem)
+	s.templateslock = &sync.RWMutex{}
+	s.sampling = make(map[string]producer.SamplingRateSystem)
+	s.samplinglock = &sync.RWMutex{}
+
+	decoderParams := decoder.DecoderParams{
+		DecoderFunc:   s.decodeNetFlow,
+		DoneCallback:  s.accountCallback,
+		ErrorCallback: nil,
+	}
+	log.Infof("Creating NetFlow message processor with %v workers", s.fworkers)
+	processor := decoder.CreateProcessor(s.fworkers, decoderParams, "NetFlow")
+	log.WithFields(log.Fields{
+		"Name": "NetFlow"}).Debug("Starting workers")
 	processor.Start()
 
 	addr := net.UDPAddr{
@@ -146,7 +442,7 @@ func netflowRoutine(processArgs *producer.ProcessArguments, wg *sync.WaitGroup) 
 		payloadCut := make([]byte, size)
 		copy(payloadCut, payload[0:size])
 
-		baseMessage := netflow.BaseMessage{
+		baseMessage := BaseMessage{
 			Src:     pktAddr.IP,
 			Port:    pktAddr.Port,
 			Payload: payloadCut,
@@ -185,12 +481,158 @@ func netflowRoutine(processArgs *producer.ProcessArguments, wg *sync.WaitGroup) 
 	udpconn.Close()
 }
 
-func sflowRoutine(processArgs *producer.ProcessArguments, wg *sync.WaitGroup) {
-	defer (*wg).Done()
+func (s *state) decodeSflow(msg interface{}) error {
+	pkt := msg.(BaseMessage)
+	buf := bytes.NewBuffer(pkt.Payload)
+	key := pkt.Src.String()
 
-	sfConfig := sflow.CreateConfig()
+	timeTrackStart := time.Now()
+	msgDec, err := sflow.DecodeMessage(buf)
 
-	processor := sflow.CreateProcessor(*SWorkers, sfConfig, producer.ProcessMessageSFlow, *processArgs, producer.ProcessSFlowError)
+	if err != nil {
+		switch err.(type) {
+		case *sflow.ErrorVersion:
+			SFlowErrors.With(
+				prometheus.Labels{
+					"router": key,
+					"error":  "error_version",
+				}).
+				Inc()
+		case *sflow.ErrorIPVersion:
+			SFlowErrors.With(
+				prometheus.Labels{
+					"router": key,
+					"error":  "error_ip_version",
+				}).
+				Inc()
+		case *sflow.ErrorDataFormat:
+			SFlowErrors.With(
+				prometheus.Labels{
+					"router": key,
+					"error":  "error_data_format",
+				}).
+				Inc()
+		default:
+			SFlowErrors.With(
+				prometheus.Labels{
+					"router": key,
+					"error":  "error_decoding",
+				}).
+				Inc()
+		}
+		return err
+	}
+
+	switch msgDecConv := msgDec.(type) {
+	case sflow.Packet:
+		agentStr := net.IP(msgDecConv.AgentIP).String()
+		SFlowStats.With(
+			prometheus.Labels{
+				"router":  key,
+				"agent":   agentStr,
+				"version": "5",
+			}).
+			Inc()
+
+		for _, samples := range msgDecConv.Samples {
+			typeStr := "unknown"
+			countRec := 0
+			switch samplesConv := samples.(type) {
+			case sflow.FlowSample:
+				typeStr = "FlowSample"
+				countRec = len(samplesConv.Records)
+			case sflow.CounterSample:
+				typeStr = "CounterSample"
+				if samplesConv.Header.Format == 4 {
+					typeStr = "Expanded" + typeStr
+				}
+				countRec = len(samplesConv.Records)
+			case sflow.ExpandedFlowSample:
+				typeStr = "ExpandedFlowSample"
+				countRec = len(samplesConv.Records)
+			}
+			SFlowSampleStatsSum.With(
+				prometheus.Labels{
+					"router":  key,
+					"agent":   agentStr,
+					"version": "5",
+					"type":    typeStr,
+				}).
+				Inc()
+
+			SFlowSampleRecordsStatsSum.With(
+				prometheus.Labels{
+					"router":  key,
+					"agent":   agentStr,
+					"version": "5",
+					"type":    typeStr,
+				}).
+				Add(float64(countRec))
+		}
+
+	}
+
+	var flowMessageSet []*flowmessage.FlowMessage
+	flowMessageSet, err = producer.ProcessMessageSFlow(msgDec)
+
+	timeTrackStop := time.Now()
+	DecoderTime.With(
+		prometheus.Labels{
+			"name": "sFlow",
+		}).
+		Observe(float64((timeTrackStop.Sub(timeTrackStart)).Nanoseconds()) / 1000)
+
+	ts := uint64(time.Now().UTC().Unix())
+	for _, fmsg := range flowMessageSet {
+		fmsg.TimeRecvd = ts
+		fmsg.TimeFlow = ts
+	}
+
+	s.produceFlow(flowMessageSet)
+
+	return nil
+}
+
+func (s *state) accountCallback(name string, id int, start, end time.Time) {
+	DecoderProcessTime.With(
+		prometheus.Labels{
+			"name": name,
+		}).
+		Observe(float64((end.Sub(start)).Nanoseconds()) / 1000)
+	DecoderStats.With(
+		prometheus.Labels{
+			"worker": strconv.Itoa(id),
+			"name":   name,
+		}).
+		Inc()
+}
+
+type state struct {
+	kafkaState *transport.KafkaState
+	kafkaEn    bool
+
+	templateslock *sync.RWMutex
+	templates     map[string]*TemplateSystem
+
+	samplinglock *sync.RWMutex
+	sampling     map[string]producer.SamplingRateSystem
+
+	debug bool
+
+	fworkers int
+	sworkers int
+}
+
+func (s *state) sflowRoutine() {
+	decoderParams := decoder.DecoderParams{
+		DecoderFunc:   s.decodeSflow,
+		DoneCallback:  s.accountCallback,
+		ErrorCallback: nil,
+	}
+
+	processor := decoder.CreateProcessor(s.sworkers, decoderParams, "sFlow")
+	log.WithFields(log.Fields{
+		"Name": "sFlow"}).Debug("Starting workers")
 	processor.Start()
 
 	addr := net.UDPAddr{
@@ -217,7 +659,7 @@ func sflowRoutine(processArgs *producer.ProcessArguments, wg *sync.WaitGroup) {
 		payloadCut := make([]byte, size)
 		copy(payloadCut, payload[0:size])
 
-		baseMessage := sflow.BaseMessage{
+		baseMessage := BaseMessage{
 			Src:     pktAddr.IP,
 			Port:    pktAddr.Port,
 			Payload: payloadCut,
@@ -254,6 +696,17 @@ func sflowRoutine(processArgs *producer.ProcessArguments, wg *sync.WaitGroup) {
 	}
 
 	udpconn.Close()
+}
+
+func GetServiceAddresses(srv string) (addrs []string, err error) {
+	_, srvs, err := net.LookupSRV("", "", srv)
+	if err != nil {
+		return nil, errors.New(fmt.Sprintf("Service discovery: %v\n", err))
+	}
+	for _, srv := range srvs {
+		addrs = append(addrs, net.JoinHostPort(srv.Target, strconv.Itoa(int(srv.Port))))
+	}
+	return addrs, nil
 }
 
 func main() {
@@ -281,15 +734,40 @@ func main() {
 		"sFlow":   *SEnable}).
 		Info("Starting GoFlow")
 
-	processArgs := producer.CreateProcessArguments(*EnableKafka, *SamplingRate, *UniqueTemplates)
+	s := &state{
+		fworkers: *FWorkers,
+		sworkers: *SWorkers,
+	}
+
+	if *LogLevel == "debug" {
+		s.debug = true
+	}
+
+	if *EnableKafka {
+		addrs := make([]string, 0)
+		if *KafkaSrv != "" {
+			addrs, _ = GetServiceAddresses(*KafkaSrv)
+		} else {
+			addrs = strings.Split(*KafkaBrk, ",")
+		}
+		kafkaState := transport.StartKafkaProducer(addrs, *KafkaTopic)
+		s.kafkaState = kafkaState
+		s.kafkaEn = true
+	}
 
 	if *FEnable {
 		(*wg).Add(1)
-		go netflowRoutine(&processArgs, wg)
+		go func() {
+			s.netflowRoutine()
+			(*wg).Done()
+		}()
 	}
 	if *SEnable {
 		(*wg).Add(1)
-		go sflowRoutine(&processArgs, wg)
+		go func() {
+			s.sflowRoutine()
+			(*wg).Done()
+		}()
 	}
 
 	(*wg).Wait()
