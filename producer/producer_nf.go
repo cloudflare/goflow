@@ -223,6 +223,26 @@ func ConvertNetFlowDataSet(version uint16, baseTime uint32, uptime uint32, recor
 			flowMessage.IPversion = flowmessage.FlowMessage_IPv6
 			flowMessage.NextHop = v
 
+		// ICMP
+		case netflow.NFV9_FIELD_ICMP_TYPE:
+			var icmpTypeCode uint16
+			DecodeUNumber(v, &icmpTypeCode)
+			flowMessage.IcmpType = uint32(icmpTypeCode>>8)
+			flowMessage.IcmpCode = uint32(icmpTypeCode&0xff)
+		case netflow.IPFIX_FIELD_icmpTypeCodeIPv6:
+			var icmpTypeCode uint16
+			DecodeUNumber(v, &icmpTypeCode)
+			flowMessage.IcmpType = uint32(icmpTypeCode>>8)
+			flowMessage.IcmpCode = uint32(icmpTypeCode&0xff)
+		case netflow.IPFIX_FIELD_icmpTypeIPv4:
+			DecodeUNumber(v, &(flowMessage.IcmpType))
+		case netflow.IPFIX_FIELD_icmpTypeIPv6:
+			DecodeUNumber(v, &(flowMessage.IcmpType))
+		case netflow.IPFIX_FIELD_icmpCodeIPv4:
+			DecodeUNumber(v, &(flowMessage.IcmpCode))
+		case netflow.IPFIX_FIELD_icmpCodeIPv6:
+			DecodeUNumber(v, &(flowMessage.IcmpCode))
+
 		// Mac
 		case netflow.NFV9_FIELD_IN_SRC_MAC:
 			DecodeUNumber(v, &(flowMessage.SrcMac))

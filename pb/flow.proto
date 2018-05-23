@@ -75,4 +75,7 @@ message FlowMessage {
 
   // Layer 3 protocol (IPv4/IPv6/ARP/...)
   uint32 Etype = 30;
+
+  uint32 IcmpType = 31;
+  uint32 IcmpCode = 32;
 }

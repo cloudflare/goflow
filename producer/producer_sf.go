@@ -89,6 +89,12 @@ func ParseSampledHeader(flowMessage *flowmessage.FlowMessage, sampledHeader *sfl
 			tcpflags = dataTransport[13]
 		}
 
+		// ICMP and ICMPv6
+		if len(dataTransport) >= 2 && (nextHeader == 1 || nextHeader == 58) {
+			(*flowMessage).IcmpType = uint32(dataTransport[0])
+			(*flowMessage).IcmpCode = uint32(dataTransport[1])
+		}
+
 		(*flowMessage).SrcIP = srcIP
 		(*flowMessage).DstIP = dstIP
 		(*flowMessage).Proto = uint32(nextHeader)
