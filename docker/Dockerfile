@@ -1,6 +1,6 @@
 FROM debian:stretch
 
-ARG DOWNLOAD_URL=https://github.com/cloudflare/goflow/releases/download/v2.0.3/goflow-v2.0.3-linux-x86_64
+ARG DOWNLOAD_URL=https://github.com/cloudflare/goflow/releases/download/v2.0.4/goflow-v2.0.4-linux-x86_64
 
 RUN apt-get update && \
     apt-get -y install curl && \
