@@ -1,6 +1,8 @@
 package transport
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	log "github.com/Sirupsen/logrus"
 	flowmessage "github.com/cloudflare/goflow/pb"
 	proto "github.com/golang/protobuf/proto"
@@ -12,10 +14,18 @@ type KafkaState struct {
 	topic    string
 }
 
-func StartKafkaProducer(addrs []string, topic string) *KafkaState {
+func StartKafkaProducer(addrs []string, topic string, use_tls bool) *KafkaState {
 	kafkaConfig := sarama.NewConfig()
 	kafkaConfig.Producer.Return.Successes = false
 	kafkaConfig.Producer.Return.Errors = false
+	if use_tls {
+		rootCAs, err := x509.SystemCertPool()
+		if err != nil {
+			log.Fatalf("Error initializing TLS: %v", err)
+		}
+		kafkaConfig.Net.TLS.Enable = true
+		kafkaConfig.Net.TLS.Config = &tls.Config{RootCAs: rootCAs}
+	}
 
 	kafkaProducer, err := sarama.NewAsyncProducer(addrs, kafkaConfig)
 	if err != nil {
@@ -23,7 +33,7 @@ func StartKafkaProducer(addrs []string, topic string) *KafkaState {
 	}
 	state := KafkaState{
 		producer: kafkaProducer,
-		topic: topic,
+		topic:    topic,
 	}
 
 	return &state

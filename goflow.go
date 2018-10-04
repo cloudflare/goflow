@@ -50,6 +50,7 @@ var (
 	MetricsPath  = flag.String("metrics.path", "/metrics", "Metrics path")
 	TemplatePath = flag.String("templates.path", "/templates", "NetFlow/IPFIX templates list")
 
+	KafkaTLS   = flag.Bool("kafka.tls", false, "Use TLS to connect to Kafka")
 	KafkaTopic = flag.String("kafka.out.topic", "flow-messages", "Kafka topic to produce to")
 	KafkaSrv   = flag.String("kafka.out.srv", "", "SRV record containing a list of Kafka brokers (or use kafka.out.brokers)")
 	KafkaBrk   = flag.String("kafka.out.brokers", "127.0.0.1:9092,[::1]:9092", "Kafka brokers list separated by commas")
@@ -750,7 +751,7 @@ func main() {
 		} else {
 			addrs = strings.Split(*KafkaBrk, ",")
 		}
-		kafkaState := transport.StartKafkaProducer(addrs, *KafkaTopic)
+		kafkaState := transport.StartKafkaProducer(addrs, *KafkaTopic, *KafkaTLS)
 		s.kafkaState = kafkaState
 		s.kafkaEn = true
 	}
