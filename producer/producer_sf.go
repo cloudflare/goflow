@@ -39,6 +39,9 @@ func ParseSampledHeader(flowMessage *flowmessage.FlowMessage, sampledHeader *sfl
 		var srcMac uint64
 		var dstMac uint64
 
+		var identification uint16
+		var fragOffset uint16
+
 		dstMac = binary.BigEndian.Uint64(append([]byte{0, 0}, data[0:6]...))
 		srcMac = binary.BigEndian.Uint64(append([]byte{0, 0}, data[6:12]...))
 		(*flowMessage).SrcMac = srcMac
@@ -62,6 +65,9 @@ func ParseSampledHeader(flowMessage *flowmessage.FlowMessage, sampledHeader *sfl
 				dataTransport = data[offset+20 : len(data)]
 				tos = data[offset+1]
 				ttl = data[offset+8]
+
+				identification = binary.BigEndian.Uint16(data[offset+4 : offset+6])
+				fragOffset = binary.BigEndian.Uint16(data[offset+6 : offset+8])
 			}
 		} else if etherType[0] == 0x86 && etherType[1] == 0xdd { // IPv6
 			(*flowMessage).IPversion = flowmessage.FlowMessage_IPv6
@@ -101,6 +107,9 @@ func ParseSampledHeader(flowMessage *flowmessage.FlowMessage, sampledHeader *sfl
 		(*flowMessage).IPTos = uint32(tos)
 		(*flowMessage).IPTTL = uint32(ttl)
 		(*flowMessage).TCPFlags = uint32(tcpflags)
+		
+		(*flowMessage).FragmentId = uint32(identification)
+		(*flowMessage).FragmentOffset = uint32(fragOffset)
 	}
 	return nil
 }
