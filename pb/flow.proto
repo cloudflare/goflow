@@ -80,6 +80,11 @@ message FlowMessage {
   uint32 IcmpType = 31;
   uint32 IcmpCode = 32;
 
+  // Vlan
   uint32 SrcVlan = 33;
   uint32 DstVlan = 34;
+
+  // Fragments (IPv4/IPv6)
+  uint32 FragmentId = 35;
+  uint32 FragmentOffset = 36;
 }
