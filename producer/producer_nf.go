@@ -188,9 +188,11 @@ func ConvertNetFlowDataSet(version uint16, baseTime uint32, uptime uint32, recor
 		case netflow.NFV9_FIELD_IPV4_SRC_ADDR:
 			flowMessage.IPversion = flowmessage.FlowMessage_IPv4
 			flowMessage.SrcIP = v
+			flowMessage.Etype = 0x800
 		case netflow.NFV9_FIELD_IPV4_DST_ADDR:
 			flowMessage.IPversion = flowmessage.FlowMessage_IPv4
 			flowMessage.DstIP = v
+			flowMessage.Etype = 0x800
 
 		case netflow.NFV9_FIELD_SRC_MASK:
 			DecodeUNumber(v, &(flowMessage.SrcNet))
@@ -200,9 +202,11 @@ func ConvertNetFlowDataSet(version uint16, baseTime uint32, uptime uint32, recor
 		case netflow.NFV9_FIELD_IPV6_SRC_ADDR:
 			flowMessage.IPversion = flowmessage.FlowMessage_IPv6
 			flowMessage.SrcIP = v
+			flowMessage.Etype = 0x86dd
 		case netflow.NFV9_FIELD_IPV6_DST_ADDR:
 			flowMessage.IPversion = flowmessage.FlowMessage_IPv6
 			flowMessage.DstIP = v
+			flowMessage.Etype = 0x86dd
 
 		case netflow.NFV9_FIELD_IPV6_SRC_MASK:
 			DecodeUNumber(v, &(flowMessage.SrcNet))
@@ -251,6 +255,9 @@ func ConvertNetFlowDataSet(version uint16, baseTime uint32, uptime uint32, recor
 
 		case netflow.NFV9_FIELD_SRC_VLAN:
 			DecodeUNumber(v, &(flowMessage.VlanId))
+			DecodeUNumber(v, &(flowMessage.SrcVlan))
+		case netflow.NFV9_FIELD_DST_VLAN:
+			DecodeUNumber(v, &(flowMessage.DstVlan))
 
 		default:
 			if version == 9 {

@@ -71,6 +71,7 @@ message FlowMessage {
   uint64 SrcMac = 27;
   uint64 DstMac = 28;
 
+  // 802.1q VLAN in sampled packet
   uint32 VlanId = 29;
 
   // Layer 3 protocol (IPv4/IPv6/ARP/...)
@@ -78,4 +79,7 @@ message FlowMessage {
 
   uint32 IcmpType = 31;
   uint32 IcmpCode = 32;
+
+  uint32 SrcVlan = 33;
+  uint32 DstVlan = 34;
 }

@@ -176,6 +176,9 @@ func SearchSFlowSamples(samples []interface{}) []*flowmessage.FlowMessage {
 				} else {
 					flowMessage.DstAS = recordData.AS
 				}
+			case sflow.ExtendedSwitch:
+				flowMessage.SrcVlan = recordData.SrcVlan
+				flowMessage.DstVlan = recordData.DstVlan
 			}
 		}
 		flowMessageSet = append(flowMessageSet, flowMessage)
