@@ -53,6 +53,7 @@ var (
 	KafkaTLS   = flag.Bool("kafka.tls", false, "Use TLS to connect to Kafka")
 	KafkaSASL  = flag.Bool("kafka.sasl", false, "Use SASL/PLAIN data to connect to Kafka (TLS is recommended and the environment variables KAFKA_SASL_USER and KAFKA_SASL_PASS need to be set)")
 	KafkaTopic = flag.String("kafka.out.topic", "flow-messages", "Kafka topic to produce to")
+	KafkaKey   = flag.String("kafka.out.key", "", "Key for Kafka records")
 	KafkaSrv   = flag.String("kafka.out.srv", "", "SRV record containing a list of Kafka brokers (or use kafka.out.brokers)")
 	KafkaBrk   = flag.String("kafka.out.brokers", "127.0.0.1:9092,[::1]:9092", "Kafka brokers list separated by commas")
 
@@ -768,7 +769,7 @@ func main() {
 		} else {
 			addrs = strings.Split(*KafkaBrk, ",")
 		}
-		kafkaState := transport.StartKafkaProducer(addrs, *KafkaTopic, *KafkaTLS, *KafkaSASL)
+		kafkaState := transport.StartKafkaProducer(addrs, *KafkaTopic, *KafkaKey, *KafkaTLS, *KafkaSASL)
 		s.kafkaState = kafkaState
 		s.kafkaEn = true
 	}

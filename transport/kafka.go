@@ -13,9 +13,10 @@ import (
 type KafkaState struct {
 	producer sarama.AsyncProducer
 	topic    string
+	key      sarama.Encoder
 }
 
-func StartKafkaProducer(addrs []string, topic string, use_tls bool, use_sasl bool) *KafkaState {
+func StartKafkaProducer(addrs []string, topic string, key string, use_tls bool, use_sasl bool) *KafkaState {
 	kafkaConfig := sarama.NewConfig()
 	kafkaConfig.Producer.Return.Successes = false
 	kafkaConfig.Producer.Return.Errors = false
@@ -45,9 +46,16 @@ func StartKafkaProducer(addrs []string, topic string, use_tls bool, use_sasl boo
 	if err != nil {
 		log.Fatalf("%v", err)
 	}
+
+	var keyEncoder sarama.Encoder
+	if key != "" {
+		keyEncoder = sarama.StringEncoder(key)
+	}
+
 	state := KafkaState{
 		producer: kafkaProducer,
 		topic:    topic,
+		key:      keyEncoder,
 	}
 
 	return &state
@@ -57,6 +65,7 @@ func (s KafkaState) SendKafkaFlowMessage(flowMessage *flowmessage.FlowMessage) {
 	b, _ := proto.Marshal(flowMessage)
 	s.producer.Input() <- &sarama.ProducerMessage{
 		Topic: s.topic,
+		Key:   s.key,
 		Value: sarama.ByteEncoder(b),
 	}
 }
