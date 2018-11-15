@@ -264,6 +264,9 @@ func ConvertNetFlowDataSet(version uint16, baseTime uint32, uptime uint32, recor
 		case netflow.NFV9_FIELD_FRAGMENT_OFFSET:
 			DecodeUNumber(v, &(flowMessage.FragmentOffset))
 
+		case netflow.NFV9_FIELD_IPV6_FLOW_LABEL:
+			DecodeUNumber(v, &(flowMessage.IPv6FlowLabel))
+
 		default:
 			if version == 9 {
 				// NetFlow v9 time works with a differential based on router's uptime

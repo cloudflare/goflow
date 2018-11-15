@@ -80,6 +80,9 @@ func ParseSampledHeader(flowMessage *flowmessage.FlowMessage, sampledHeader *sfl
 				tostmp := uint32(binary.BigEndian.Uint16(data[offset : offset+2]))
 				tos = uint8(tostmp & 0x0ff0 >> 4)
 				ttl = data[offset+7]
+
+				flowLabeltmp := binary.BigEndian.Uint32(data[offset : offset+4])
+				(*flowMessage).IPv6FlowLabel = flowLabeltmp & 0xFFFFF
 			}
 		} else if etherType[0] == 0x8 && etherType[1] == 0x6 { // ARP
 		} else {
