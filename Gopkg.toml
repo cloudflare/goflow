@@ -38,7 +38,7 @@
   version = "0.8.0"
 
 [[constraint]]
-  name = "gopkg.in/Shopify/sarama.v1"
+  name = "github.com/Shopify/sarama"
   version = "1.19.0"
 
 [prune]

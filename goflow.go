@@ -28,7 +28,7 @@ import (
 	"bytes"
 )
 
-const AppVersion = "GoFlow v2.0.6"
+const AppVersion = "GoFlow v2.0.7"
 
 var (
 	FEnable = flag.Bool("netflow", true, "Enable NetFlow")

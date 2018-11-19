@@ -6,7 +6,7 @@ import (
 	log "github.com/Sirupsen/logrus"
 	flowmessage "github.com/cloudflare/goflow/pb"
 	proto "github.com/golang/protobuf/proto"
-	sarama "gopkg.in/Shopify/sarama.v1"
+	sarama "github.com/Shopify/sarama"
 	"os"
 )
 
