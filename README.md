@@ -165,6 +165,13 @@ The format is the following:
 | DstMac | Destination Mac Address |
 | VlanId | Vlan when 802.1q |
 | Etype | Ethernet type (IPv4, IPv6, ARP, etc.) |
+| IcmpType | ICMP Type |
+| IcmpCode | ICMP Code |
+| SrcVlan | Source VLAN |
+| DstVlan | Destination VLAN |
+| FragmentId | IP Fragment Identifier |
+| FragmentOffset | IP Fragment Offset |
+| IPv6FlowLabel | IPv6 Flow Label |
 
 ### Implementation notes
 
