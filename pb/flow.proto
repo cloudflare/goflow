@@ -87,4 +87,6 @@ message FlowMessage {
   // Fragments (IPv4/IPv6)
   uint32 FragmentId = 35;
   uint32 FragmentOffset = 36;
+
+  uint32 IPv6FlowLabel = 37;
 }
