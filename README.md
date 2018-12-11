@@ -2,14 +2,14 @@
 
 This application is a NetFlow/IPFIX/sFlow collector in Go.
 
-It gather the network informations (IP, interfaces, routers) from the different flow protocols,
-serialize it in a protobuf format and sends the message to Kafka using Sarama's library.
+It gathers network information (IP, interfaces, routers) from different flow protocols,
+serializes it in a protobuf format and sends the messages to Kafka using Sarama's library.
 
 ## Why
 
 The diversity of devices and the amount of network samples at Cloudflare required its own pipeline.
-We focused on building tools that could be easily monitored and maintainable.
-The main goal is to have a full visibility of a network while allowing other teams to develop on it.
+We focused on building tools that could be easily monitored and maintained.
+The main goal is to have full visibility of a network while allowing other teams to develop on it.
 
 ### Modularity
 
@@ -36,16 +36,16 @@ Starting on v2.0.0: you have an increased flexibility and less inter-dependance 
 The sampling protocols can be very different:
 
 **sFlow** is a stateless protocol which sends the full header of a packet with router information
-(interfaces, destination AS) while **NetFlow/IPFIX** rely on templates that contains fields (eg: source IPv6)
+(interfaces, destination AS) while **NetFlow/IPFIX** rely on templates that contains fields (eg: source IPv6).
 
 The sampling rate in NetFlow/IPFIX is provided by **Option Data Sets**. This is why it can take a few minutes
 for the packets to be decoded until all the templates are received (**Option Template** and **Data Template**).
 
-Both of these protocols bundles multiples samples (**Data Set** in NetFlow/IPFIX and **Flow Sample** in sFlow)
-in one packet
+Both of these protocols bundle multiple samples (**Data Set** in NetFlow/IPFIX and **Flow Sample** in sFlow)
+in one packet.
 
-The advantages of using an abstract network flow format as protobuf enables summing over the protocols
-(eg: per ASN or per port, rather than per (ASN, router) and (port, router)).
+The advantages of using an abstract network flow format, such as protobuf, is it enables summing over the
+protocols (eg: per ASN or per port, rather than per (ASN, router) and (port, router)).
 
 ## Features
 
