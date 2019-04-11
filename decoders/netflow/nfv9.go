@@ -229,6 +229,8 @@ func NFv9TypeToString(typeId uint16) string {
 		102: "layer2packetSectionOffset",
 		103: "layer2packetSectionSize",
 		104: "layer2packetSectionData",
+		234: "ingressVRFID",
+		235: "egressVRFID",
 	}
 
 	if typeId > 104 || typeId == 0 {

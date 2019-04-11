@@ -259,6 +259,11 @@ func ConvertNetFlowDataSet(version uint16, baseTime uint32, uptime uint32, recor
 		case netflow.NFV9_FIELD_DST_VLAN:
 			DecodeUNumber(v, &(flowMessage.DstVlan))
 
+		case netflow.IPFIX_FIELD_ingressVRFID:
+			DecodeUNumber(v, &(flowMessage.IngressVrfId))
+		case netflow.IPFIX_FIELD_egressVRFID:
+			DecodeUNumber(v, &(flowMessage.EgressVrfId))
+
 		case netflow.NFV9_FIELD_IPV4_IDENT:
 			DecodeUNumber(v, &(flowMessage.FragmentId))
 		case netflow.NFV9_FIELD_FRAGMENT_OFFSET:
