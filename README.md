@@ -29,14 +29,14 @@ You can build your own collector using this base and replace parts:
 * Decode different samples (eg: not only IP networks, add MPLS)
 * Different metrics system (eg: use [expvar](https://golang.org/pkg/expvar/) instead of Prometheus)
 
-Starting on v2.0.0: you have an increased flexibility and less inter-dependance in the code.
+Starting on v2.0.0: you have an increased flexibility and less interdependence in the code.
 
 ### Protocol difference
 
 The sampling protocols can be very different:
 
 **sFlow** is a stateless protocol which sends the full header of a packet with router information
-(interfaces, destination AS) while **NetFlow/IPFIX** rely on templates that contains fields (eg: source IPv6).
+(interfaces, destination AS) while **NetFlow/IPFIX** rely on templates that contain fields (eg: source IPv6).
 
 The sampling rate in NetFlow/IPFIX is provided by **Option Data Sets**. This is why it can take a few minutes
 for the packets to be decoded until all the templates are received (**Option Template** and **Data Template**).
@@ -175,9 +175,9 @@ The format is the following:
 
 ### Implementation notes
 
-At Cloudflare, we aggregate the flows in Flink using a 
-[Keyed Session Windows](https://ci.apache.org/projects/flink/flink-docs-release-1.4/dev/stream/operators/windows.html#session-windows):
-this sums the `Bytes x SamplingRate` and `Packets x SamplingRate` received during a 5 minutes **windows** while allowing 2 more minutes 
+At Cloudflare, we aggregate the flows in Flink using a
+[Keyed Session Window](https://ci.apache.org/projects/flink/flink-docs-release-1.4/dev/stream/operators/windows.html#session-windows):
+this sums the `Bytes x SamplingRate` and `Packets x SamplingRate` received during a 5 minutes **window** while allowing 2 more minutes
 in the case where some flows were delayed before closing the **session**.
 
 The BGP information provided by routers can be unreliable (if the router does not have a BGP full-table or it is a static route).
