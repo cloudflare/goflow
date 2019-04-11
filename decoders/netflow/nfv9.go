@@ -213,7 +213,7 @@ func NFv9TypeToString(typeId uint16) string {
 		84:  "SAMPLER_NAME",
 		85:  "IN_ PERMANENT _BYTES",
 		86:  "IN_ PERMANENT _PKTS",
-		87:  "* Vendor Proprietary*",
+		87:  "*Vendor Proprietary*",
 		88:  "FRAGMENT_OFFSET",
 		89:  "FORWARDING STATUS",
 		90:  "MPLS PAL RD",
