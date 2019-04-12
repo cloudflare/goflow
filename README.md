@@ -137,7 +137,7 @@ The format is the following:
 | ----- | ----------- |
 | FlowType | Indicates the protocol (IPFIX, NetFlow v9, sFlow v5) |
 | TimeRecvd | Timestamp the packet was received by the collector |
-| TimeFlow | Timestamp of the packet (same as TimeRecvd in sFlow, in NetFlow it's the uptime of the router minus LAST_SWITCHED field, in IPFIX it's flowEnd* field) |
+| TimeFlow | Timestamp of the packet (same as TimeRecvd in sFlow, in NetFlow it's the uptime of the router minus LAST_SWITCHED field, in IPFIX it's flowEnd* field), meant to be replaced by TimeFlowEnd |
 | SamplingRate | Sampling rate of the flow, used to extrapolate the number of bytes and packets |
 | SequenceNum | Sequence number of the packet |
 | SrcIP | Source IP (sequence of bytes, can be IPv4 or IPv6) |
@@ -172,6 +172,8 @@ The format is the following:
 | FragmentId | IP Fragment Identifier |
 | FragmentOffset | IP Fragment Offset |
 | IPv6FlowLabel | IPv6 Flow Label |
+| TimeFlowStart | Start Timestamp of the flow (same as TimeRecvd in sFlow, in NetFlow it's the uptime of the router minus FIRST_SWITCHED field, in IPFIX it's flowStart* field) |
+| TimeFlowEnd | End Timestamp of the flow (same as TimeRecvd in sFlow, in NetFlow it's the uptime of the router minus LAST_SWITCHED field, in IPFIX it's flowEnd* field) |
 
 ### Implementation notes
 
