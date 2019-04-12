@@ -268,7 +268,7 @@ func (s *state) decodeNetFlow(msg interface{}) error {
 		for _, fmsg := range flowMessageSet {
 			fmsg.TimeRecvd = uint64(time.Now().UTC().Unix())
 			fmsg.RouterAddr = routerAddr
-			timeDiff := fmsg.TimeRecvd - fmsg.TimeFlow
+			timeDiff := fmsg.TimeRecvd - fmsg.TimeFlowEnd
 			NetFlowTimeStatsSum.With(
 				prometheus.Labels{
 					"router":  key,
@@ -361,7 +361,7 @@ func (s *state) decodeNetFlow(msg interface{}) error {
 		for _, fmsg := range flowMessageSet {
 			fmsg.TimeRecvd = uint64(time.Now().UTC().Unix())
 			fmsg.RouterAddr = routerAddr
-			timeDiff := fmsg.TimeRecvd - fmsg.TimeFlow
+			timeDiff := fmsg.TimeRecvd - fmsg.TimeFlowEnd
 			NetFlowTimeStatsSum.With(
 				prometheus.Labels{
 					"router":  key,
@@ -384,17 +384,17 @@ func (s *state) decodeNetFlow(msg interface{}) error {
 }
 
 func FlowMessageToString(fmsg *flowmessage.FlowMessage) string {
-	s := fmt.Sprintf("Type:%v TimeRecvd:%v SamplingRate:%v SequenceNum:%v TimeFlow:%v " +
-					"SrcIP:%v DstIP:%v IPversion:%v Bytes:%v Packets:%v RouterAddr:%v NextHop:%v NextHopAS:%v " +
-					"SrcAS:%v DstAS:%v SrcNet:%v DstNet:%v SrcIf:%v DstIf:%v Proto:%v " +
-					"SrcPort:%v DstPort:%v IPTos:%v ForwardingStatus:%v IPTTL:%v TCPFlags:%v " +
-					"SrcMac:%v DstMac:%v VlanId:%v Etype:%v IcmpType:%v IcmpCode:%v " +
-					"SrcVlan:%v DstVlan:%v IPv6FlowLabel:%v",
-		fmsg.Type, fmsg.TimeRecvd, fmsg.SamplingRate, fmsg.SequenceNum, fmsg.TimeFlow, 
-		net.IP(fmsg.SrcIP), net.IP(fmsg.DstIP), fmsg.IPversion, fmsg.Bytes, fmsg.Packets, net.IP(fmsg.RouterAddr), net.IP(fmsg.NextHop), fmsg.NextHopAS, 
-		fmsg.SrcAS, fmsg.DstAS, fmsg.SrcNet, fmsg.DstNet, fmsg.SrcIf, fmsg.DstIf, fmsg.Proto, 
-		fmsg.SrcPort, fmsg.DstPort, fmsg.IPTos, fmsg.ForwardingStatus, fmsg.IPTTL, fmsg.TCPFlags, 
-		fmsg.SrcMac, fmsg.DstMac, fmsg.VlanId, fmsg.Etype, fmsg.IcmpType, fmsg.IcmpCode, 
+	s := fmt.Sprintf("Type:%v TimeRecvd:%v SamplingRate:%v SequenceNum:%v TimeFlowStart:%v "+
+		"TimeFlowEnd:%v SrcIP:%v DstIP:%v IPversion:%v Bytes:%v Packets:%v RouterAddr:%v "+
+		"NextHop:%v NextHopAS:%v SrcAS:%v DstAS:%v SrcNet:%v DstNet:%v SrcIf:%v DstIf:%v "+
+		"Proto:%v SrcPort:%v DstPort:%v IPTos:%v ForwardingStatus:%v IPTTL:%v TCPFlags:%v "+
+		"SrcMac:%v DstMac:%v VlanId:%v Etype:%v IcmpType:%v IcmpCode:%v "+
+		"SrcVlan:%v DstVlan:%v IPv6FlowLabel:%v",
+		fmsg.Type, fmsg.TimeRecvd, fmsg.SamplingRate, fmsg.SequenceNum, fmsg.TimeFlowStart, fmsg.TimeFlowEnd,
+		net.IP(fmsg.SrcIP), net.IP(fmsg.DstIP), fmsg.IPversion, fmsg.Bytes, fmsg.Packets, net.IP(fmsg.RouterAddr), net.IP(fmsg.NextHop), fmsg.NextHopAS,
+		fmsg.SrcAS, fmsg.DstAS, fmsg.SrcNet, fmsg.DstNet, fmsg.SrcIf, fmsg.DstIf, fmsg.Proto,
+		fmsg.SrcPort, fmsg.DstPort, fmsg.IPTos, fmsg.ForwardingStatus, fmsg.IPTTL, fmsg.TCPFlags,
+		fmsg.SrcMac, fmsg.DstMac, fmsg.VlanId, fmsg.Etype, fmsg.IcmpType, fmsg.IcmpCode,
 		fmsg.SrcVlan, fmsg.DstVlan, fmsg.IPv6FlowLabel)
 	return s
 }
@@ -603,7 +603,9 @@ func (s *state) decodeSflow(msg interface{}) error {
 	ts := uint64(time.Now().UTC().Unix())
 	for _, fmsg := range flowMessageSet {
 		fmsg.TimeRecvd = ts
-		fmsg.TimeFlow = ts
+		fmsg.TimeFlow = ts // deprecate this
+		fmsg.TimeFlowStart = ts
+		fmsg.TimeFlowEnd = ts
 	}
 
 	s.produceFlow(flowMessageSet)
