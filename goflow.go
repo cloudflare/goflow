@@ -604,7 +604,6 @@ func (s *state) decodeSflow(msg interface{}) error {
 	for _, fmsg := range flowMessageSet {
 		fmsg.TimeRecvd = ts
 		fmsg.TimeFlow = ts // deprecate this
-		fmsg.TimeFlowStart = ts
 		fmsg.TimeFlowEnd = ts
 	}
 
