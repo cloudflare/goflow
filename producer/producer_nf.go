@@ -271,26 +271,50 @@ func ConvertNetFlowDataSet(version uint16, baseTime uint32, uptime uint32, recor
 			if version == 9 {
 				// NetFlow v9 time works with a differential based on router's uptime
 				switch df.Type {
+				case netflow.NFV9_FIELD_FIRST_SWITCHED:
+					var timeFirstSwitched uint32
+					DecodeUNumber(v, &timeFirstSwitched)
+					timeDiff := (uptime - timeFirstSwitched) / 1000
+					flowMessage.TimeFlowStart = uint64(baseTime - timeDiff)
 				case netflow.NFV9_FIELD_LAST_SWITCHED:
 					var timeLastSwitched uint32
 					DecodeUNumber(v, &timeLastSwitched)
 					timeDiff := (uptime - timeLastSwitched) / 1000
-					flowMessage.TimeFlow = uint64(baseTime - timeDiff)
+					timeFlowEnd := uint64(baseTime - timeDiff)
+					flowMessage.TimeFlow = timeFlowEnd // deprecate this
+					flowMessage.TimeFlowEnd = timeFlowEnd
 				}
 			} else if version == 10 {
 				switch df.Type {
+				case netflow.IPFIX_FIELD_flowStartSeconds:
+					DecodeUNumber(v, &time)
+					flowMessage.TimeFlowStart = time
+				case netflow.IPFIX_FIELD_flowStartMilliseconds:
+					DecodeUNumber(v, &time)
+					flowMessage.TimeFlowStart = time / 1000
+				case netflow.IPFIX_FIELD_flowStartMicroseconds:
+					DecodeUNumber(v, &time)
+					flowMessage.TimeFlowStart = time / 1000000
+				case netflow.IPFIX_FIELD_flowStartNanoseconds:
+					DecodeUNumber(v, &time)
+					flowMessage.TimeFlowStart = time / 1000000000
+
 				case netflow.IPFIX_FIELD_flowEndSeconds:
 					DecodeUNumber(v, &time)
-					flowMessage.TimeFlow = time
+					flowMessage.TimeFlow = time // deprecate this
+					flowMessage.TimeFlowEnd = time
 				case netflow.IPFIX_FIELD_flowEndMilliseconds:
 					DecodeUNumber(v, &time)
-					flowMessage.TimeFlow = time / 1000
+					flowMessage.TimeFlow = time / 1000 // deprecate this
+					flowMessage.TimeFlowEnd = time / 1000
 				case netflow.IPFIX_FIELD_flowEndMicroseconds:
 					DecodeUNumber(v, &time)
-					flowMessage.TimeFlow = time / 1000000
+					flowMessage.TimeFlow = time / 1000000 // deprecate this
+					flowMessage.TimeFlowEnd = time / 1000000
 				case netflow.IPFIX_FIELD_flowEndNanoseconds:
 					DecodeUNumber(v, &time)
-					flowMessage.TimeFlow = time / 1000000000
+					flowMessage.TimeFlow = time / 1000000000 // deprecate this
+					flowMessage.TimeFlowEnd = time / 1000000000
 				}
 			}
 		}
