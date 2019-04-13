@@ -1,7 +1,9 @@
-package main
+package utils
 
 import (
 	"github.com/prometheus/client_golang/prometheus"
+	"strconv"
+	"time"
 )
 
 var (
@@ -130,7 +132,7 @@ var (
 	)
 )
 
-func initMetrics() {
+func init() {
 	prometheus.MustRegister(MetricTrafficBytes)
 	prometheus.MustRegister(MetricTrafficPackets)
 	prometheus.MustRegister(MetricPacketSizeSum)
@@ -151,4 +153,18 @@ func initMetrics() {
 	prometheus.MustRegister(SFlowErrors)
 	prometheus.MustRegister(SFlowSampleStatsSum)
 	prometheus.MustRegister(SFlowSampleRecordsStatsSum)
+}
+
+func DefaultAccountCallback(name string, id int, start, end time.Time) {
+	DecoderProcessTime.With(
+		prometheus.Labels{
+			"name": name,
+		}).
+		Observe(float64((end.Sub(start)).Nanoseconds()) / 1000)
+	DecoderStats.With(
+		prometheus.Labels{
+			"worker": strconv.Itoa(id),
+			"name":   name,
+		}).
+		Inc()
 }

@@ -981,7 +981,7 @@ func (p IPFIXPacket) String() string {
 			str += fmt.Sprintf("    - OptionsDataFlowSet %v:\n", i)
 			str += flowSet.String(IPFIXTypeToString, IPFIXTypeToString)
 		default:
-			str += fmt.Sprintf("    - (unknown type) %v:\n", i, flowSet)
+			str += fmt.Sprintf("    - (unknown type) %v: %v\n", i, flowSet)
 		}
 	}
 

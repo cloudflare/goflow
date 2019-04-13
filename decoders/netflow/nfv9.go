@@ -308,7 +308,7 @@ func (p NFv9Packet) String() string {
 			str += fmt.Sprintf("    - OptionsDataFlowSet %v:\n", i)
 			str += flowSet.String(NFv9TypeToString, NFv9ScopeToString)
 		default:
-			str += fmt.Sprintf("    - (unknown type) %v:\n", i, flowSet)
+			str += fmt.Sprintf("    - (unknown type) %v: %v\n", i, flowSet)
 		}
 	}
 	return str

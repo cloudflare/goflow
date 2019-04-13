@@ -1,0 +1,15 @@
+language: go
+go_import_path: github.com/cloudflare/goflow
+go:
+  - 1.12.x
+
+script:
+  - GO111MODULE=on make
+
+notifications:
+  email:
+    recipients:
+    - louis@cloudflare.com
+    on_success: never
+    on_failure: change
+
