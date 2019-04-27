@@ -21,15 +21,18 @@ which contains the fields a network engineer is interested in.
 The flow packets usually contains multiples samples
 This acts as an abstraction of a sample.
 
+The `transport` provides different way of processing the protobuf. Either sending it via Kafka or 
+print it on the console.
+
+Finally, `utils` provide functions that are directly used by the CLI utils.
 GoFlow is a wrapper of all the functions and chains thems into producing bytes into Kafka.
+There is also one CLI tool per protocol.
 
 You can build your own collector using this base and replace parts:
 * Use different transport (eg: RabbitMQ instead of Kafka)
 * Convert to another format (eg: Cap'n Proto, Avro, instead of protobuf)
 * Decode different samples (eg: not only IP networks, add MPLS)
 * Different metrics system (eg: use [expvar](https://golang.org/pkg/expvar/) instead of Prometheus)
-
-Starting on v2.0.0: you have an increased flexibility and less interdependence in the code.
 
 ### Protocol difference
 
@@ -50,6 +53,7 @@ protocols (eg: per ASN or per port, rather than per (ASN, router) and (port, rou
 ## Features
 
 Collection:
+* NetFlow v5
 * IPFIX/NetFlow v9
   * Handles sampling rate provided by the Option Data Set
 * sFlow v5: RAW, IPv4, IPv6, Ethernet samples, Gateway data, router data, switch data
@@ -57,6 +61,7 @@ Collection:
 Production:
 * Convert to protobuf
 * Sends to Kafka producer
+* Prints to the console
 
 Monitoring:
 * Prometheus metrics
@@ -73,15 +78,14 @@ Download the latest release and just run the following command:
 ./goflow -h
 ```
 
-Enable or disable a protocol using `-netflow=false` or `-sflow=false`.
-Define the port and addresses of the protocols using `-faddr`, `-fport` for NetFlow and `-saddr`, `-sport` for sFlow.
-
-Set the `-loglevel` to `debug` mode to see what is received.
+Enable or disable a protocol using `-nf=false` or `-sflow=false`.
+Define the port and addresses of the protocols using `-nf.addr`, `-nf.port` for NetFlow and `-sflow.addr`, `-slow.port` for sFlow.
 
 Set the brokers or the Kafka brokers SRV record using: `-kafka.out.brokers 127.0.0.1:9092,[::1]:9092` or `-kafka.out.srv`.
 Disable Kafka sending `-kafka=false`.
+You can hash the protobuf by key when you send it to Kafka.
 
-You can collect NetFlow/IPFIX and sFlow using the same.
+You can collect NetFlow/IPFIX and sFlow using the same collector.
 
 You can define the number of workers per protocol using `-fworkers` and `-sworkers`.
 
@@ -90,7 +94,7 @@ You can define the number of workers per protocol using `-fworkers` and `-sworke
 We also provide a all-in-one Docker container. To run it in debug mode without sending into Kafka:
 
 ```
-$ sudo docker run --net=host -ti cloudflare/goflow:latest -kafka=false -loglevel debug
+$ sudo docker run --net=host -ti cloudflare/goflow:latest -kafka=false
 ```
 
 ## Environment
@@ -119,7 +123,6 @@ Example in Go:
 ```
 export SRC_DIR="path/to/goflow-pb"
 protoc --proto_path=$SRC_DIR --plugin=/path/to/bin/protoc-gen-go $SRC_DIR/flow.proto --go_out=$SRC_DIR
-
 ```
 
 Example in Java:
@@ -128,57 +131,18 @@ Example in Java:
 export SRC_DIR="path/to/goflow-pb"
 export DST_DIR="path/to/java/app/src/main/java"
 protoc -I=$SRC_DIR --java_out=$DST_DIR $SRC_DIR/flow.proto
-
 ```
-
-The format is the following:
-
-| Field | Description |
-| ----- | ----------- |
-| FlowType | Indicates the protocol (IPFIX, NetFlow v9, sFlow v5) |
-| TimeRecvd | Timestamp the packet was received by the collector |
-| TimeFlow | Timestamp of the packet (same as TimeRecvd in sFlow, in NetFlow it's the uptime of the router minus LAST_SWITCHED field, in IPFIX it's flowEnd* field) |
-| SamplingRate | Sampling rate of the flow, used to extrapolate the number of bytes and packets |
-| SequenceNum | Sequence number of the packet |
-| SrcIP | Source IP (sequence of bytes, can be IPv4 or IPv6) |
-| DstIP | Destination IP (sequence of bytes, can be IPv4 or IPv6) |
-| IPType | Indicates if IPv4 or IPv6), meant to be replaced by Etype |
-| Bytes | Number of bytes in the sample |
-| Packets | Number of packets in the sample |
-| RouterAddr | Address of the router (UDP source in NetFlow/IPFIX, Agent IP in sFlow) |
-| NextHop | Next-hop IP |
-| NextHopAS | Next-hop ASN when the next-hop is a BGP neighbor (not all the flows) |
-| SrcAS | Source ASN (provided by BGP) |
-| DstAS | Destination ASN (provided by BGP) |
-| SrcNet | Network mask of the source IP (provided by BGP) |
-| DstNet | Network mask of the destination IP (provided by BGP) |
-| SrcIf | Source interface ID (SNMP id) |
-| DstIf | Destination interface ID (SNMP id) |
-| Proto | Protocol code: TCP, UDP, etc. |
-| SrcPort | Source port when proto is UDP/TCP |
-| DstPort | Destination port when proto is UDP/TCP |
-| IPTos | IPv4 type of service / Traffic class in IPv6 |
-| ForwardingStatus | If the packet has been [dropped, consumed or forwarded](https://www.iana.org/assignments/ipfix/ipfix.xhtml#forwarding-status) |
-| IPTTL | Time to Live of the IP packet |
-| TCPFlags | Flags of the TCP Packet (SYN, ACK, etc.) |
-| SrcMac | Source Mac Address |
-| DstMac | Destination Mac Address |
-| VlanId | Vlan when 802.1q |
-| Etype | Ethernet type (IPv4, IPv6, ARP, etc.) |
-| IcmpType | ICMP Type |
-| IcmpCode | ICMP Code |
-| SrcVlan | Source VLAN |
-| DstVlan | Destination VLAN |
-| FragmentId | IP Fragment Identifier |
-| FragmentOffset | IP Fragment Offset |
-| IPv6FlowLabel | IPv6 Flow Label |
 
 ### Implementation notes
 
-At Cloudflare, we aggregate the flows in Flink using a
+At Cloudflare, we used to aggregate flows in Flink using a
 [Keyed Session Window](https://ci.apache.org/projects/flink/flink-docs-release-1.4/dev/stream/operators/windows.html#session-windows):
 this sums the `Bytes x SamplingRate` and `Packets x SamplingRate` received during a 5 minutes **window** while allowing 2 more minutes
 in the case where some flows were delayed before closing the **session**.
+
+Currently, we are aggregating using Materialized tables in Clickhouse.
+Dictionaries help correlating flows with country and ASNs.
+A few collectors can treat hundred of thousands of samples.
 
 The BGP information provided by routers can be unreliable (if the router does not have a BGP full-table or it is a static route).
 You can use Maxmind [prefix to ASN](https://dev.maxmind.com/geoip/geoip2/geolite2/) in order to solve this issue.
