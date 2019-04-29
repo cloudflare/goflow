@@ -26,6 +26,7 @@ import (
 	"encoding/json"
 
 	"bytes"
+	reuseport "github.com/libp2p/go-reuseport"
 )
 
 const AppVersion = "GoFlow v2.0.7"
@@ -34,11 +35,13 @@ var (
 	FEnable = flag.Bool("netflow", true, "Enable NetFlow")
 	SEnable = flag.Bool("sflow", true, "Enable sFlow")
 
-	FAddr = flag.String("faddr", ":", "NetFlow/IPFIX listening address")
-	FPort = flag.Int("fport", 2055, "NetFlow/IPFIX listening port")
+	FAddr  = flag.String("faddr", ":", "NetFlow/IPFIX listening address")
+	FPort  = flag.Int("fport", 2055, "NetFlow/IPFIX listening port")
+	FReuse = flag.Bool("freuse", false, "Use so_reuseport for NetFlow/IPFIX listening")
 
-	SAddr = flag.String("saddr", ":", "sFlow listening address")
-	SPort = flag.Int("sport", 6343, "sFlow listening port")
+	SAddr  = flag.String("saddr", ":", "sFlow listening address")
+	SPort  = flag.Int("sport", 6343, "sFlow listening port")
+	SReuse = flag.Bool("sreuse", false, "Use so_reuseport for sFlow listening")
 
 	FWorkers = flag.Int("fworkers", 1, "Number of NetFlow workers")
 	SWorkers = flag.Int("sworkers", 1, "Number of sFlow workers")
@@ -440,10 +443,32 @@ func (s *state) netflowRoutine() {
 		IP:   net.ParseIP(*FAddr),
 		Port: *FPort,
 	}
-	udpconn, err := net.ListenUDP("udp", &addr)
-	if err != nil {
-		log.Fatalf("Fatal error: could not listen to UDP (%v)", err)
-		udpconn.Close()
+
+	var (
+		udpconn *net.UDPConn
+		err     error
+	)
+
+	if *FReuse {
+		pconn, err := reuseport.ListenPacket("udp", addr.String())
+		if err != nil {
+			log.Fatalf("Fatal error: could not listen to UDP (%v)", err)
+			pconn.Close()
+		}
+		var ok bool
+		udpconn, ok = pconn.(*net.UDPConn)
+		if !ok {
+			log.Fatalf("Fatal error: could not listen to UDP with so_reuseport")
+			pconn.Close()
+		}
+
+	} else {
+
+		udpconn, err = net.ListenUDP("udp", &addr)
+		if err != nil {
+			log.Fatalf("Fatal error: could not listen to UDP (%v)", err)
+			udpconn.Close()
+		}
 	}
 
 	payload := make([]byte, 9000)
@@ -657,10 +682,32 @@ func (s *state) sflowRoutine() {
 		IP:   net.ParseIP(*SAddr),
 		Port: *SPort,
 	}
-	udpconn, err := net.ListenUDP("udp", &addr)
-	if err != nil {
-		log.Fatalf("Fatal error: could not listen to UDP (%v)", err)
-		udpconn.Close()
+
+	var (
+		udpconn *net.UDPConn
+		err     error
+	)
+
+	if *SReuse {
+		pconn, err := reuseport.ListenPacket("udp", addr.String())
+		if err != nil {
+			log.Fatalf("Fatal error: could not listen to UDP (%v)", err)
+			pconn.Close()
+		}
+		var ok bool
+		udpconn, ok = pconn.(*net.UDPConn)
+		if !ok {
+			log.Fatalf("Fatal error: could not listen to UDP with so_reuseport")
+			pconn.Close()
+		}
+
+	} else {
+
+		udpconn, err = net.ListenUDP("udp", &addr)
+		if err != nil {
+			log.Fatalf("Fatal error: could not listen to UDP (%v)", err)
+			udpconn.Close()
+		}
 	}
 
 	payload := make([]byte, 9000)
