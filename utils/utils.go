@@ -11,6 +11,7 @@ import (
 	"net"
 	"strconv"
 	"time"
+	reuseport "github.com/libp2p/go-reuseport"
 )
 
 func GetServiceAddresses(srv string) (addrs []string, err error) {
@@ -92,7 +93,7 @@ func FlowMessageToString(fmsg *flowmessage.FlowMessage) string {
 	return s
 }
 
-func UDPRoutine(name string, decodeFunc decoder.DecoderFunc, workers int, addr string, port int, logger Logger) error {
+func UDPRoutine(name string, decodeFunc decoder.DecoderFunc, workers int, addr string, port int, sockReuse bool, logger Logger) error {
 	ecb := DefaultErrorCallback{
 		Logger: logger,
 	}
@@ -110,9 +111,27 @@ func UDPRoutine(name string, decodeFunc decoder.DecoderFunc, workers int, addr s
 		IP:   net.ParseIP(addr),
 		Port: port,
 	}
-	udpconn, err := net.ListenUDP("udp", &addrUDP)
-	if err != nil {
-		return err
+
+	var udpconn *net.UDPConn
+	var err error
+
+	if sockReuse {
+		pconn, err := reuseport.ListenPacket("udp", addrUDP.String())
+		defer pconn.Close()
+		if err != nil {
+			return err
+		}
+		var ok bool
+		udpconn, ok = pconn.(*net.UDPConn)
+		if !ok {
+			return err
+		}
+	} else {
+		udpconn, err = net.ListenUDP("udp", &addrUDP)
+		defer udpconn.Close()
+		if err != nil {
+			return err
+		}
 	}
 
 	payload := make([]byte, 9000)

@@ -131,5 +131,5 @@ func (s *StateSFlow) DecodeFlow(msg interface{}) error {
 }
 
 func (s *StateSFlow) FlowRoutine(workers int, addr string, port int) error {
-	return UDPRoutine("sFlow", s.DecodeFlow, workers, addr, port, s.Logger)
+	return UDPRoutine("sFlow", s.DecodeFlow, workers, addr, port, false, s.Logger)
 }

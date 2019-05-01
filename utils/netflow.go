@@ -342,5 +342,5 @@ func (s *StateNetFlow) FlowRoutine(workers int, addr string, port int) error {
 	s.sampling = make(map[string]producer.SamplingRateSystem)
 	s.samplinglock = &sync.RWMutex{}
 
-	return UDPRoutine("NetFlow", s.DecodeFlow, workers, addr, port, s.Logger)
+	return UDPRoutine("NetFlow", s.DecodeFlow, workers, addr, port, false, s.Logger)
 }
