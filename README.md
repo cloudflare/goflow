@@ -172,6 +172,8 @@ The format is the following:
 | FragmentId | IP Fragment Identifier |
 | FragmentOffset | IP Fragment Offset |
 | IPv6FlowLabel | IPv6 Flow Label |
+| IngressVrfId | Ingress VRF ID |
+| EgressVrfId | Egress VRF ID |
 
 ### Implementation notes
 

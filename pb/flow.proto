@@ -22,7 +22,7 @@ message FlowMessage {
   uint64 TimeFlow = 5;
 
   // Source/destination addresses
-  bytes SrcIP = 6; 
+  bytes SrcIP = 6;
   bytes DstIP = 7;
 
   // To be deprecated
@@ -89,4 +89,8 @@ message FlowMessage {
   uint32 FragmentOffset = 36;
 
   uint32 IPv6FlowLabel = 37;
+
+  // VRF
+  uint32 IngressVrfId = 38;
+  uint32 EgressVrfId = 39;
 }
