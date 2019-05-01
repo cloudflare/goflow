@@ -174,6 +174,8 @@ The format is the following:
 | IPv6FlowLabel | IPv6 Flow Label |
 | TimeFlowStart | Start Timestamp of the flow (this field is empty for sFlow, in NetFlow it's the uptime of the router minus FIRST_SWITCHED field, in IPFIX it's flowStart* field) |
 | TimeFlowEnd | End Timestamp of the flow (same as TimeRecvd in sFlow, in NetFlow it's the uptime of the router minus LAST_SWITCHED field, in IPFIX it's flowEnd* field) |
+| IngressVrfId | Ingress VRF ID |
+| EgressVrfId | Egress VRF ID |
 
 ### Implementation notes
 

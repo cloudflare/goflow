@@ -90,6 +90,10 @@ message FlowMessage {
 
   uint32 IPv6FlowLabel = 37;
 
+  // VRF
+  uint32 IngressVrfId = 38;
+  uint32 EgressVrfId = 39;
+  
   // time information, found inside packets
   uint64 TimeFlowStart = 40;
   uint64 TimeFlowEnd = 41;
