@@ -18,7 +18,7 @@ message FlowMessage {
   uint64 SamplingRate = 3;
   uint32 SequenceNum = 4;
 
-  // Found inside packet
+  // Found inside packet (To be deprecated in favor of TimeFlowEnd)
   uint64 TimeFlow = 5;
 
   // Source/destination addresses
@@ -93,4 +93,8 @@ message FlowMessage {
   // VRF
   uint32 IngressVrfId = 38;
   uint32 EgressVrfId = 39;
+  
+  // time information, found inside packets
+  uint64 TimeFlowStart = 40;
+  uint64 TimeFlowEnd = 41;
 }
