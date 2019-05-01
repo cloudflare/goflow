@@ -88,4 +88,8 @@ message FlowMessage {
   uint32 SrcNet = 16;
   uint32 DstNet = 17;
 
+
+  // Custom fields: start after ID 1000:
+  // uint32 MyCustomField = 1000;
+
 }

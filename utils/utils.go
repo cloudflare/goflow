@@ -7,11 +7,11 @@ import (
 	"github.com/cloudflare/goflow/decoders"
 	"github.com/cloudflare/goflow/decoders/netflow"
 	flowmessage "github.com/cloudflare/goflow/pb"
+	reuseport "github.com/libp2p/go-reuseport"
 	"github.com/prometheus/client_golang/prometheus"
 	"net"
 	"strconv"
 	"time"
-	reuseport "github.com/libp2p/go-reuseport"
 )
 
 func GetServiceAddresses(srv string) (addrs []string, err error) {
