@@ -56,6 +56,15 @@ func (s *DefaultLogTransport) Publish(msgs []*flowmessage.FlowMessage) {
 	}
 }
 
+type DefaultJSONTransport struct {
+}
+
+func (s *DefaultJSONTransport) Publish(msgs []*flowmessage.FlowMessage) {
+	for _, msg := range msgs {
+		fmt.Printf("%v\n", FlowMessageToJSON(msg))
+	}
+}
+
 type DefaultErrorCallback struct {
 	Logger Logger
 }
@@ -82,7 +91,31 @@ func FlowMessageToString(fmsg *flowmessage.FlowMessage) string {
 		"DstAddr:%v Etype:%v Proto:%v SrcPort:%v DstPort:%v SrcIf:%v DstIf:%v SrcMac:%v "+
 		"DstMac:%v SrcVlan:%v DstVlan:%v VlanId:%v IngressVrfID:%v EgressVrfID:%v IPTos:%v "+
 		"ForwardingStatus:%v IPTTL:%v TCPFlags:%v IcmpType:%v IcmpCode:%v IPv6FlowLabel:%v "+
-		"FragmentId:%v FragmentOffset:%v BiFlowDirection: %v SrcAS:%v DstAS:%v NextHop:%v NextHopAS:%v SrcNet:%v DstNet:%v",
+		"FragmentId:%v FragmentOffset:%v BiFlowDirection:%v SrcAS:%v DstAS:%v NextHop:%v NextHopAS:%v SrcNet:%v DstNet:%v",
+		fmsg.Type, fmsg.TimeReceived, fmsg.SequenceNum, fmsg.SamplingRate, net.IP(fmsg.SamplerAddress),
+		fmsg.TimeFlowStart, fmsg.TimeFlowEnd, fmsg.Bytes, fmsg.Packets, net.IP(fmsg.SrcAddr), net.IP(fmsg.DstAddr),
+		fmsg.Etype, fmsg.Proto, fmsg.SrcPort, fmsg.DstPort, fmsg.SrcIf, fmsg.DstIf, net.HardwareAddr(srcmac),
+		net.HardwareAddr(dstmac), fmsg.SrcVlan, fmsg.DstVlan, fmsg.VlanId, fmsg.IngressVrfID,
+		fmsg.EgressVrfID, fmsg.IPTos, fmsg.ForwardingStatus, fmsg.IPTTL, fmsg.TCPFlags, fmsg.IcmpType,
+		fmsg.IcmpCode, fmsg.IPv6FlowLabel, fmsg.FragmentId, fmsg.FragmentOffset, fmsg.BiFlowDirection, fmsg.SrcAS, fmsg.DstAS,
+		net.IP(fmsg.NextHop), fmsg.NextHopAS, fmsg.SrcNet, fmsg.DstNet)
+	return s
+}
+
+func FlowMessageToJSON(fmsg *flowmessage.FlowMessage) string {
+	srcmac := make([]byte, 8)
+	dstmac := make([]byte, 8)
+	binary.BigEndian.PutUint64(srcmac, fmsg.SrcMac)
+	binary.BigEndian.PutUint64(dstmac, fmsg.DstMac)
+	srcmac = srcmac[2:8]
+	dstmac = dstmac[2:8]
+
+	s := fmt.Sprintf("{\"Type\":\"%v\",\"TimeReceived\":%v,\"SequenceNum\":%v,\"SamplingRate\":%v,"+
+		"\"SamplerAddress\":\"%v\",\"TimeFlowStart\":%v,\"TimeFlowEnd\":%v,\"Bytes\":%v,\"Packets\":%v,\"SrcAddr\":\"%v\","+
+		"\"DstAddr\":\"%v\",\"Etype\":%v,\"Proto\":%v,\"SrcPort\":%v,\"DstPort\":%v,\"SrcIf\":%v,\"DstIf\":%v,\"SrcMac\":\"%v\","+
+		"\"DstMac\":\"%v\",\"SrcVlan\":%v,\"DstVlan\":%v,\"VlanId\":%v,\"IngressVrfID\":%v,\"EgressVrfID\":%v,\"IPTos\":%v,"+
+		"\"ForwardingStatus\":%v,\"IPTTL\":%v,\"TCPFlags\":%v,\"IcmpType\":%v,\"IcmpCode\":%v,\"IPv6FlowLabel\":%v,"+
+		"\"FragmentId\":%v,\"FragmentOffset\":%v,\"BiFlowDirection\":%v,\"SrcAS\":%v,\"DstAS\":%v,\"NextHop\":\"%v\",\"NextHopAS\":%v,\"SrcNet\":%v,\"DstNet\":%v}",
 		fmsg.Type, fmsg.TimeReceived, fmsg.SequenceNum, fmsg.SamplingRate, net.IP(fmsg.SamplerAddress),
 		fmsg.TimeFlowStart, fmsg.TimeFlowEnd, fmsg.Bytes, fmsg.Packets, net.IP(fmsg.SrcAddr), net.IP(fmsg.DstAddr),
 		fmsg.Etype, fmsg.Proto, fmsg.SrcPort, fmsg.DstPort, fmsg.SrcIf, fmsg.DstIf, net.HardwareAddr(srcmac),
