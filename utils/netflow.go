@@ -336,11 +336,14 @@ func (s *StateNetFlow) ServeHTTPTemplates(w http.ResponseWriter, r *http.Request
 	enc.Encode(tmp)
 }
 
-func (s *StateNetFlow) FlowRoutine(workers int, addr string, port int) error {
+func (s *StateNetFlow) InitTemplates() {
 	s.templates = make(map[string]*TemplateSystem)
 	s.templateslock = &sync.RWMutex{}
 	s.sampling = make(map[string]producer.SamplingRateSystem)
 	s.samplinglock = &sync.RWMutex{}
+}
 
+func (s *StateNetFlow) FlowRoutine(workers int, addr string, port int) error {
+	s.InitTemplates()
 	return UDPRoutine("NetFlow", s.DecodeFlow, workers, addr, port, false, s.Logger)
 }
