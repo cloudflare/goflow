@@ -219,6 +219,8 @@ func ConvertNetFlowDataSet(version uint16, baseTime uint32, uptime uint32, recor
 			DecodeUNumber(v, &(flowMessage.SrcNet))
 		case netflow.NFV9_FIELD_IPV6_DST_MASK:
 			DecodeUNumber(v, &(flowMessage.DstNet))
+		case netflow.NFV9_FIELD_IPV6_OPTION_HEADERS:
+			DecodeUNumber(v, &(flowMessage.IPv6ExtensionHeaders))
 
 		case netflow.NFV9_FIELD_IPV4_NEXT_HOP:
 			flowMessage.NextHop = v
