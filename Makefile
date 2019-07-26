@@ -15,7 +15,7 @@ clean:
 .PHONY: build
 build:
 	@echo compiling code
-	mkdir bin
+	mkdir -p bin
 	GOOS=$(GOOS) go build -ldflags '-X main.version=$(VERSION)' -o bin/goflow-$(GOOS)-$(ARCH) cmd/goflow/goflow.go
 	GOOS=$(GOOS) go build -ldflags '-X main.version=$(VERSION)' -o bin/goflow-sflow-$(GOOS)-$(ARCH) cmd/csflow/csflow.go
 	GOOS=$(GOOS) go build -ldflags '-X main.version=$(VERSION)' -o bin/goflow-netflow-$(GOOS)-$(ARCH) cmd/cnetflow/cnetflow.go
