@@ -56,8 +56,6 @@ func ParseSampledHeader(flowMessage *flowmessage.FlowMessage, sampledHeader *sfl
 		(*flowMessage).Etype = uint32(binary.BigEndian.Uint16(etherType[0:2]))
 
 		if etherType[0] == 0x8 && etherType[1] == 0x0 { // IPv4
-			(*flowMessage).IPversion = flowmessage.FlowMessage_IPv4
-
 			if len(data) >= offset+36 {
 				nextHeader = data[offset+9]
 				srcIP = data[offset+12 : offset+16]
@@ -70,7 +68,6 @@ func ParseSampledHeader(flowMessage *flowmessage.FlowMessage, sampledHeader *sfl
 				fragOffset = binary.BigEndian.Uint16(data[offset+6 : offset+8])
 			}
 		} else if etherType[0] == 0x86 && etherType[1] == 0xdd { // IPv6
-			(*flowMessage).IPversion = flowmessage.FlowMessage_IPv6
 			if len(data) >= offset+40 {
 				nextHeader = data[offset+6]
 				srcIP = data[offset+8 : offset+24]
@@ -104,13 +101,13 @@ func ParseSampledHeader(flowMessage *flowmessage.FlowMessage, sampledHeader *sfl
 			(*flowMessage).IcmpCode = uint32(dataTransport[1])
 		}
 
-		(*flowMessage).SrcIP = srcIP
-		(*flowMessage).DstIP = dstIP
+		(*flowMessage).SrcAddr = srcIP
+		(*flowMessage).DstAddr = dstIP
 		(*flowMessage).Proto = uint32(nextHeader)
 		(*flowMessage).IPTos = uint32(tos)
 		(*flowMessage).IPTTL = uint32(ttl)
 		(*flowMessage).TCPFlags = uint32(tcpflags)
-		
+
 		(*flowMessage).FragmentId = uint32(identification)
 		(*flowMessage).FragmentOffset = uint32(fragOffset)
 	}
@@ -124,7 +121,7 @@ func SearchSFlowSamples(samples []interface{}) []*flowmessage.FlowMessage {
 		var records []sflow.FlowRecord
 
 		flowMessage := &flowmessage.FlowMessage{}
-		flowMessage.Type = flowmessage.FlowMessage_SFLOW
+		flowMessage.Type = flowmessage.FlowMessage_SFLOW_5
 
 		switch flowSample := flowSample.(type) {
 		case sflow.FlowSample:
@@ -151,9 +148,8 @@ func SearchSFlowSamples(samples []interface{}) []*flowmessage.FlowMessage {
 			case sflow.SampledIPv4:
 				ipSrc = recordData.Base.SrcIP
 				ipDst = recordData.Base.DstIP
-				flowMessage.SrcIP = ipSrc
-				flowMessage.DstIP = ipDst
-				flowMessage.IPversion = flowmessage.FlowMessage_IPv4
+				flowMessage.SrcAddr = ipSrc
+				flowMessage.DstAddr = ipDst
 				flowMessage.Bytes = uint64(recordData.Base.Length)
 				flowMessage.Proto = recordData.Base.Protocol
 				flowMessage.SrcPort = recordData.Base.SrcPort
@@ -163,9 +159,8 @@ func SearchSFlowSamples(samples []interface{}) []*flowmessage.FlowMessage {
 			case sflow.SampledIPv6:
 				ipSrc = recordData.Base.SrcIP
 				ipDst = recordData.Base.DstIP
-				flowMessage.IPversion = flowmessage.FlowMessage_IPv6
-				flowMessage.SrcIP = ipSrc
-				flowMessage.DstIP = ipDst
+				flowMessage.SrcAddr = ipSrc
+				flowMessage.DstAddr = ipDst
 				flowMessage.Bytes = uint64(recordData.Base.Length)
 				flowMessage.Proto = recordData.Base.Protocol
 				flowMessage.SrcPort = recordData.Base.SrcPort
@@ -208,14 +203,12 @@ func ProcessMessageSFlow(msgDec interface{}) ([]*flowmessage.FlowMessage, error)
 		flowSamples := GetSFlowFlowSamples(&packet)
 		flowMessageSet := SearchSFlowSamples(flowSamples)
 		for _, fmsg := range flowMessageSet {
-			fmsg.RouterAddr = agent
+			fmsg.SamplerAddress = agent
 			fmsg.SequenceNum = seqnum
 		}
 
 		return flowMessageSet, nil
 	default:
-		return []*flowmessage.FlowMessage{}, errors.New("Bad SFlow version")
+		return []*flowmessage.FlowMessage{}, errors.New("Bad sFlow version")
 	}
-
-	return []*flowmessage.FlowMessage{}, nil
 }

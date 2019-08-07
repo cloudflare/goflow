@@ -1,17 +1,12 @@
-ARG src_dir="/go/src/github.com/cloudflare/goflow"
-
 FROM golang:alpine as builder
-ARG src_dir
+ARG VERSION=""
 
-RUN apk --update --no-cache add git && \
-    mkdir -p ${src_dir}
+RUN apk --update --no-cache add git build-base gcc
 
-WORKDIR ${src_dir}
-COPY . .
+COPY . /build
+WORKDIR /build
 
-RUN go get -u github.com/golang/dep/cmd/dep && \
-    dep ensure && \
-    go build
+RUN go build -ldflags "-X main.version=${VERSION}" -o goflow cmd/goflow/goflow.go
 
 FROM alpine:latest
 ARG src_dir
@@ -19,6 +14,6 @@ ARG src_dir
 RUN apk update --no-cache && \
     adduser -S -D -H -h / flow
 USER flow
-COPY --from=builder ${src_dir}/goflow /
+COPY --from=builder /build/goflow /
 
 ENTRYPOINT ["./goflow"]
