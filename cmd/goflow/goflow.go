@@ -17,7 +17,8 @@ import (
 
 var (
 	version    = ""
-	AppVersion = "GoFlow " + version
+	buildinfos = ""
+	AppVersion = "GoFlow " + version + " " + buildinfos
 
 	SFlowEnable = flag.Bool("sflow", true, "Enable sFlow")
 	SFlowAddr   = flag.String("sflow.addr", "", "sFlow listening address")

@@ -1,0 +1,11 @@
+version: '3'
+services:
+  packager:
+    build: package
+    entrypoint: make
+    command:
+      - build-goflow
+      - package-deb-goflow
+      - package-rpm-goflow
+    volumes:
+      - ./:/work/

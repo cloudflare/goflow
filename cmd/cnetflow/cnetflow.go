@@ -15,7 +15,8 @@ import (
 
 var (
 	version    = ""
-	AppVersion = "GoFlow NetFlow " + version
+	buildinfos = ""
+	AppVersion = "GoFlow NetFlow " + version + " " + buildinfos
 
 	Addr = flag.String("addr", "", "NetFlow/IPFIX listening address")
 	Port = flag.Int("port", 2055, "NetFlow/IPFIX listening port")

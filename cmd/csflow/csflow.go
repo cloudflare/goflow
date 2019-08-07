@@ -15,7 +15,8 @@ import (
 
 var (
 	version    = ""
-	AppVersion = "GoFlow sFlow " + version
+	buildinfos = ""
+	AppVersion = "GoFlow sFlow " + version + " " + buildinfos
 
 	Addr = flag.String("addr", "", "sFlow listening address")
 	Port = flag.Int("port", 6343, "sFlow listening port")

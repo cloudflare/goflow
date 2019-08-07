@@ -1,0 +1,11 @@
+[Unit]
+Description=GoFlow
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/default/goflow
+ExecStart=/usr/bin/goflow $GOFLOW_ARGS
+
+[Install]
+WantedBy=multi-user.target
