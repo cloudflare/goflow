@@ -56,6 +56,17 @@ func (s *basicSamplingRateSystem) GetSamplingRate(version uint16, obsDomainId ui
 	return 0, errors.New("") // TBC
 }
 
+type SingleSamplingRateSystem struct {
+	Sampling uint32
+}
+
+func (s *SingleSamplingRateSystem) AddSamplingRate(version uint16, obsDomainId uint32, samplingRate uint32) {
+}
+
+func (s *SingleSamplingRateSystem) GetSamplingRate(version uint16, obsDomainId uint32) (uint32, error) {
+	return s.Sampling, nil
+}
+
 func NetFlowLookFor(dataFields []netflow.DataField, typeId uint16) (bool, interface{}) {
 	for _, dataField := range dataFields {
 		if dataField.Type == typeId {
@@ -130,7 +141,7 @@ func ConvertNetFlowDataSet(version uint16, baseTime uint32, uptime uint32, recor
 	var time uint64
 
 	if version == 9 {
-		flowMessage.Type = flowmessage.FlowMessage_NFV9
+		flowMessage.Type = flowmessage.FlowMessage_NETFLOW_V9
 	} else if version == 10 {
 		flowMessage.Type = flowmessage.FlowMessage_IPFIX
 	}
@@ -186,12 +197,10 @@ func ConvertNetFlowDataSet(version uint16, baseTime uint32, uptime uint32, recor
 
 		// IP
 		case netflow.NFV9_FIELD_IPV4_SRC_ADDR:
-			flowMessage.IPversion = flowmessage.FlowMessage_IPv4
-			flowMessage.SrcIP = v
+			flowMessage.SrcAddr = v
 			flowMessage.Etype = 0x800
 		case netflow.NFV9_FIELD_IPV4_DST_ADDR:
-			flowMessage.IPversion = flowmessage.FlowMessage_IPv4
-			flowMessage.DstIP = v
+			flowMessage.DstAddr = v
 			flowMessage.Etype = 0x800
 
 		case netflow.NFV9_FIELD_SRC_MASK:
@@ -200,12 +209,10 @@ func ConvertNetFlowDataSet(version uint16, baseTime uint32, uptime uint32, recor
 			DecodeUNumber(v, &(flowMessage.DstNet))
 
 		case netflow.NFV9_FIELD_IPV6_SRC_ADDR:
-			flowMessage.IPversion = flowmessage.FlowMessage_IPv6
-			flowMessage.SrcIP = v
+			flowMessage.SrcAddr = v
 			flowMessage.Etype = 0x86dd
 		case netflow.NFV9_FIELD_IPV6_DST_ADDR:
-			flowMessage.IPversion = flowmessage.FlowMessage_IPv6
-			flowMessage.DstIP = v
+			flowMessage.DstAddr = v
 			flowMessage.Etype = 0x86dd
 
 		case netflow.NFV9_FIELD_IPV6_SRC_MASK:
@@ -214,17 +221,13 @@ func ConvertNetFlowDataSet(version uint16, baseTime uint32, uptime uint32, recor
 			DecodeUNumber(v, &(flowMessage.DstNet))
 
 		case netflow.NFV9_FIELD_IPV4_NEXT_HOP:
-			flowMessage.IPversion = flowmessage.FlowMessage_IPv4
 			flowMessage.NextHop = v
 		case netflow.NFV9_FIELD_BGP_IPV4_NEXT_HOP:
-			flowMessage.IPversion = flowmessage.FlowMessage_IPv4
 			flowMessage.NextHop = v
 
 		case netflow.NFV9_FIELD_IPV6_NEXT_HOP:
-			flowMessage.IPversion = flowmessage.FlowMessage_IPv6
 			flowMessage.NextHop = v
 		case netflow.NFV9_FIELD_BGP_IPV6_NEXT_HOP:
-			flowMessage.IPversion = flowmessage.FlowMessage_IPv6
 			flowMessage.NextHop = v
 
 		// ICMP
@@ -260,9 +263,9 @@ func ConvertNetFlowDataSet(version uint16, baseTime uint32, uptime uint32, recor
 			DecodeUNumber(v, &(flowMessage.DstVlan))
 
 		case netflow.IPFIX_FIELD_ingressVRFID:
-			DecodeUNumber(v, &(flowMessage.IngressVrfId))
+			DecodeUNumber(v, &(flowMessage.IngressVrfID))
 		case netflow.IPFIX_FIELD_egressVRFID:
-			DecodeUNumber(v, &(flowMessage.EgressVrfId))
+			DecodeUNumber(v, &(flowMessage.EgressVrfID))
 
 		case netflow.NFV9_FIELD_IPV4_IDENT:
 			DecodeUNumber(v, &(flowMessage.FragmentId))
@@ -271,6 +274,12 @@ func ConvertNetFlowDataSet(version uint16, baseTime uint32, uptime uint32, recor
 
 		case netflow.NFV9_FIELD_IPV6_FLOW_LABEL:
 			DecodeUNumber(v, &(flowMessage.IPv6FlowLabel))
+
+		case netflow.IPFIX_FIELD_biflowDirection:
+			DecodeUNumber(v, &(flowMessage.BiFlowDirection))
+
+		case netflow.NFV9_FIELD_DIRECTION:
+			DecodeUNumber(v, &(flowMessage.FlowDirection))
 
 		default:
 			if version == 9 {
@@ -285,9 +294,7 @@ func ConvertNetFlowDataSet(version uint16, baseTime uint32, uptime uint32, recor
 					var timeLastSwitched uint32
 					DecodeUNumber(v, &timeLastSwitched)
 					timeDiff := (uptime - timeLastSwitched) / 1000
-					timeFlowEnd := uint64(baseTime - timeDiff)
-					flowMessage.TimeFlow = timeFlowEnd // deprecate this
-					flowMessage.TimeFlowEnd = timeFlowEnd
+					flowMessage.TimeFlowEnd = uint64(baseTime - timeDiff)
 				}
 			} else if version == 10 {
 				switch df.Type {
@@ -303,22 +310,17 @@ func ConvertNetFlowDataSet(version uint16, baseTime uint32, uptime uint32, recor
 				case netflow.IPFIX_FIELD_flowStartNanoseconds:
 					DecodeUNumber(v, &time)
 					flowMessage.TimeFlowStart = time / 1000000000
-
 				case netflow.IPFIX_FIELD_flowEndSeconds:
 					DecodeUNumber(v, &time)
-					flowMessage.TimeFlow = time // deprecate this
 					flowMessage.TimeFlowEnd = time
 				case netflow.IPFIX_FIELD_flowEndMilliseconds:
 					DecodeUNumber(v, &time)
-					flowMessage.TimeFlow = time / 1000 // deprecate this
 					flowMessage.TimeFlowEnd = time / 1000
 				case netflow.IPFIX_FIELD_flowEndMicroseconds:
 					DecodeUNumber(v, &time)
-					flowMessage.TimeFlow = time / 1000000 // deprecate this
 					flowMessage.TimeFlowEnd = time / 1000000
 				case netflow.IPFIX_FIELD_flowEndNanoseconds:
 					DecodeUNumber(v, &time)
-					flowMessage.TimeFlow = time / 1000000000 // deprecate this
 					flowMessage.TimeFlowEnd = time / 1000000000
 				}
 			}
@@ -466,7 +468,7 @@ func ProcessMessageNetFlow(msgDec interface{}, samplingRateSys SamplingRateSyste
 			fmsg.SamplingRate = uint64(samplingRate)
 		}
 	default:
-		return flowMessageSet, errors.New("Bad NetFlow version")
+		return flowMessageSet, errors.New("Bad NetFlow/IPFIX version")
 	}
 
 	return flowMessageSet, nil

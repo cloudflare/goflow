@@ -1,0 +1,42 @@
+jobs:
+  include:
+    # Test
+    - stage: test
+      os: linux
+      language: go
+      env:
+        GO111MODULE=on
+      script:
+        - make test-race vet test
+    # Compile
+    - stage: compile
+      os: linux
+      language: go
+      env:
+        GO111MODULE=on
+        BUILDINFOSDET=-travis
+      before_install:
+        - sudo apt-get update
+        - sudo apt-get install -y rpm ruby ruby-dev
+        - sudo gem install fpm
+      script:
+        - GOOS=linux make build-goflow-light
+        - GOOS=linux make build-goflow
+        - GOOS=darwin make build-goflow
+        - GOOS=windows EXTENSION=.exe make build-goflow
+        - make package-deb-goflow package-rpm-goflow
+      deploy:
+        provider: releases
+        api_key:
+          secure: eg1OSNzXVSVsCx/n7xSJAtAw7NlgtnK57EyJmrwGgvcs5OUm5cvsnK3isuWwsAFanW6b69UoyyZDayIj72poiTVGo5705lL1sN39LxypmlkpmOFJaMggIdbPAN4fB6anRHp+MBGMvxGjeJP/97JKnPXcyK+QevqxRl2sMFRjLthTBManET7ahAhD5HqsdT/MeFORCymlJ+sIRXkLHrtBdiW/KXLLzsKn3C4/OPP3Z08ggqDix7I3zLaHW7nAvug3h5V5I84FiedEgO+w7McMjX8ri2Fz/sXNz3AaQIgBUxkmnIEvv4b9nFkd3HjIHRyS6iPpcdrqGXcMqW2SVHOJ668t140MLKrZyoCj4yi0UzqjY5F6iBCy5GSz8TBbz1Mo7TF6ieVeAaC0WZImO1aRHQeBNY/5NjvmwCXLDq7sUyxcHbfSa39/Pn6sD5yZkNsSEpTJ9AHxo2/os4NxQJ6l4nV/vseNDUnhcLf3irCBpsv1k1q6EgAO4kCdELSDMaYasZm2p4U9PDiGP1tyxWoglQKzma0sR1FGnOpUQB1Wl6ZWeW4IotHLb6QQRLfERPueWgENi2etDs88lLY1EuCamFoY19nWXROCiUEYFthK6csapgQw7y4hIcup2/gB0eNVoWbGB16MYQD2W47gj6LUGDSQMAjXffymugde71R46JQ=
+        file_glob: true
+        file: dist/*
+        skip_cleanup: true
+        on:
+          tags: true
+          repo: cloudflare/goflow
+    - dist: trusty
+      services:
+        - docker
+      script:
+        - make docker-goflow

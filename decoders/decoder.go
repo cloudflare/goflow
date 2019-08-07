@@ -1,7 +1,6 @@
 package decoder
 
 import (
-	//log "github.com/Sirupsen/logrus"
 	"time"
 )
 

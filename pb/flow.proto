@@ -8,93 +8,88 @@ message FlowMessage {
 
   enum FlowType {
     FLOWUNKNOWN = 0;
-    NFV9 = 9;
-    IPFIX = 10;
-    SFLOW = 5;
+    SFLOW_5 = 1;
+    NETFLOW_V5 = 2;
+    NETFLOW_V9 = 3;
+    IPFIX = 4;
   }
   FlowType Type = 1;
 
-  uint64 TimeRecvd = 2;
-  uint64 SamplingRate = 3;
+  uint64 TimeReceived = 2;
   uint32 SequenceNum = 4;
+  uint64 SamplingRate = 3;
 
-  // Found inside packet (To be deprecated in favor of TimeFlowEnd)
-  uint64 TimeFlow = 5;
+  uint32 FlowDirection = 42;
 
-  // Source/destination addresses
-  bytes SrcIP = 6;
-  bytes DstIP = 7;
+  // Sampler information
+  bytes SamplerAddress = 11;
 
-  // To be deprecated
-  enum IPType {
-    IPUNKNOWN = 0;
-    IPv4 = 4;
-    IPv6 = 6;
-  }
-  IPType IPversion = 8;
+  // Found inside packet
+  uint64 TimeFlowStart = 38;
+  uint64 TimeFlowEnd = 5;
 
   // Size of the sampled packet
   uint64 Bytes = 9;
   uint64 Packets = 10;
 
-  // Routing information
-  bytes RouterAddr = 11;
-  bytes NextHop = 12;
-  uint32 NextHopAS = 13;
+  // Source/destination addresses
+  bytes SrcAddr = 6;
+  bytes DstAddr = 7;
 
-  // Autonomous system information
-  uint32 SrcAS = 14;
-  uint32 DstAS = 15;
+  // Layer 3 protocol (IPv4/IPv6/ARP/...)
+  uint32 Etype = 30;
 
-  // Prefix size
-  uint32 SrcNet = 16;
-  uint32 DstNet = 17;
+  // Layer 4 protocol
+  uint32 Proto = 20;
+
+  // Ports for UDP and TCP
+  uint32 SrcPort = 21;
+  uint32 DstPort = 22;
 
   // Interfaces
   uint32 SrcIf = 18;
   uint32 DstIf = 19;
 
-  // Layer 4 protocol
-  uint32 Proto = 20;
+  // Ethernet information
+  uint64 SrcMac = 27;
+  uint64 DstMac = 28;
 
-  // Port for UDP and TCP
-  uint32 SrcPort = 21;
-  uint32 DstPort = 22;
+  // Vlan
+  uint32 SrcVlan = 33;
+  uint32 DstVlan = 34;
+  // 802.1q VLAN in sampled packet
+  uint32 VlanId = 29;
+
+  // VRF
+  uint32 IngressVrfID = 39;
+  uint32 EgressVrfID = 40;
 
   // IP and TCP special flags
   uint32 IPTos = 23;
   uint32 ForwardingStatus = 24;
   uint32 IPTTL = 25;
   uint32 TCPFlags = 26;
-
-  // Ethernet information
-  uint64 SrcMac = 27;
-  uint64 DstMac = 28;
-
-  // 802.1q VLAN in sampled packet
-  uint32 VlanId = 29;
-
-  // Layer 3 protocol (IPv4/IPv6/ARP/...)
-  uint32 Etype = 30;
-
   uint32 IcmpType = 31;
   uint32 IcmpCode = 32;
-
-  // Vlan
-  uint32 SrcVlan = 33;
-  uint32 DstVlan = 34;
-
+  uint32 IPv6FlowLabel = 37;
   // Fragments (IPv4/IPv6)
   uint32 FragmentId = 35;
   uint32 FragmentOffset = 36;
+  uint32 BiFlowDirection = 41;
 
-  uint32 IPv6FlowLabel = 37;
+  // Autonomous system information
+  uint32 SrcAS = 14;
+  uint32 DstAS = 15;
 
-  // VRF
-  uint32 IngressVrfId = 38;
-  uint32 EgressVrfId = 39;
-  
-  // time information, found inside packets
-  uint64 TimeFlowStart = 40;
-  uint64 TimeFlowEnd = 41;
+  bytes NextHop = 12;
+  uint32 NextHopAS = 13;
+
+  // Prefix size
+  uint32 SrcNet = 16;
+  uint32 DstNet = 17;
+
+
+  // Custom fields: start after ID 1000:
+  // uint32 MyCustomField = 1000;
+
 }
