@@ -39,7 +39,7 @@ func (s *StateNFLegacy) DecodeFlow(msg interface{}) error {
 		return err
 	}
 
-	switch msgDec.(type) {
+	switch msgDecConv := msgDec.(type) {
 	case netflowlegacy.PacketNetFlowV5:
 		NetFlowStats.With(
 			prometheus.Labels{
@@ -47,6 +47,13 @@ func (s *StateNFLegacy) DecodeFlow(msg interface{}) error {
 				"version": "5",
 			}).
 			Inc()
+		NetFlowSetStatsSum.With(
+			prometheus.Labels{
+				"router":  key,
+				"version": "5",
+				"type":    "DataFlowSet",
+			}).
+			Add(float64(msgDecConv.Count))
 	}
 
 	var flowMessageSet []*flowmessage.FlowMessage
