@@ -23,14 +23,17 @@ var (
 	SFlowEnable = flag.Bool("sflow", true, "Enable sFlow")
 	SFlowAddr   = flag.String("sflow.addr", "", "sFlow listening address")
 	SFlowPort   = flag.Int("sflow.port", 6343, "sFlow listening port")
+	SFlowReuse  = flag.Bool("sflow.reuserport", false, "Enable so_reuseport for sFlow")
 
 	NFLEnable = flag.Bool("nfl", true, "Enable NetFlow v5")
 	NFLAddr   = flag.String("nfl.addr", "", "NetFlow v5 listening address")
 	NFLPort   = flag.Int("nfl.port", 2056, "NetFlow v5 listening port")
+	NFLReuse  = flag.Bool("nfl.reuserport", false, "Enable so_reuseport for NetFlow v5")
 
 	NFEnable = flag.Bool("nf", true, "Enable NetFlow/IPFIX")
 	NFAddr   = flag.String("nf.addr", "", "NetFlow/IPFIX listening address")
 	NFPort   = flag.Int("nf.port", 2055, "NetFlow/IPFIX listening port")
+	NFReuse  = flag.Bool("nf.reuserport", false, "Enable so_reuseport for NetFlow/IPFIX")
 
 	Workers  = flag.Int("workers", 1, "Number of workers per collector")
 	LogLevel = flag.String("loglevel", "info", "Log level")
@@ -109,7 +112,7 @@ func main() {
 				"Type": "sFlow"}).
 				Infof("Listening on UDP %v:%v", *SFlowAddr, *SFlowPort)
 
-			err := sSFlow.FlowRoutine(*Workers, *SFlowAddr, *SFlowPort)
+			err := sSFlow.FlowRoutine(*Workers, *SFlowAddr, *SFlowPort, *SFlowReuse)
 			if err != nil {
 				log.Fatalf("Fatal error: could not listen to UDP (%v)", err)
 			}
@@ -123,7 +126,7 @@ func main() {
 				"Type": "NetFlow"}).
 				Infof("Listening on UDP %v:%v", *NFAddr, *NFPort)
 
-			err := sNF.FlowRoutine(*Workers, *NFAddr, *NFPort)
+			err := sNF.FlowRoutine(*Workers, *NFAddr, *NFPort, *NFReuse)
 			if err != nil {
 				log.Fatalf("Fatal error: could not listen to UDP (%v)", err)
 			}
@@ -137,7 +140,7 @@ func main() {
 				"Type": "NetFlowLegacy"}).
 				Infof("Listening on UDP %v:%v", *NFLAddr, *NFLPort)
 
-			err := sNFL.FlowRoutine(*Workers, *NFLAddr, *NFLPort)
+			err := sNFL.FlowRoutine(*Workers, *NFLAddr, *NFLPort, *NFLReuse)
 			if err != nil {
 				log.Fatalf("Fatal error: could not listen to UDP (%v)", err)
 			}
