@@ -343,7 +343,7 @@ func (s *StateNetFlow) InitTemplates() {
 	s.samplinglock = &sync.RWMutex{}
 }
 
-func (s *StateNetFlow) FlowRoutine(workers int, addr string, port int) error {
+func (s *StateNetFlow) FlowRoutine(workers int, addr string, port int, reuseport bool) error {
 	s.InitTemplates()
-	return UDPRoutine("NetFlow", s.DecodeFlow, workers, addr, port, false, s.Logger)
+	return UDPRoutine("NetFlow", s.DecodeFlow, workers, addr, port, reuseport, s.Logger)
 }

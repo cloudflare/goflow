@@ -18,8 +18,9 @@ var (
 	buildinfos = ""
 	AppVersion = "GoFlow sFlow " + version + " " + buildinfos
 
-	Addr = flag.String("addr", "", "sFlow listening address")
-	Port = flag.Int("port", 6343, "sFlow listening port")
+	Addr  = flag.String("addr", "", "sFlow listening address")
+	Port  = flag.Int("port", 6343, "sFlow listening port")
+	Reuse = flag.Bool("reuse", false, "Enable so_reuseport for sFlow listening port")
 
 	Workers  = flag.Int("workers", 1, "Number of sFlow workers")
 	LogLevel = flag.String("loglevel", "info", "Log level")
@@ -78,7 +79,7 @@ func main() {
 		"Type": "sFlow"}).
 		Infof("Listening on UDP %v:%v", *Addr, *Port)
 
-	err := s.FlowRoutine(*Workers, *Addr, *Port)
+	err := s.FlowRoutine(*Workers, *Addr, *Port, *Reuse)
 	if err != nil {
 		log.Fatalf("Fatal error: could not listen to UDP (%v)", err)
 	}
