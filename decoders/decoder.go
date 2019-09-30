@@ -39,11 +39,11 @@ func (w Worker) Start() {
 	go func() {
 		//log.Debugf("Worker %v started", w.Id)
 		for {
-			w.WorkerPool <- w.InMsg
 			select {
 			case <-w.Quit:
 				break
-			case msg := <-w.InMsg:
+			case w.WorkerPool <- w.InMsg:
+				msg := <-w.InMsg
 				timeTrackStart := time.Now()
 				err := w.DecoderParams.DecoderFunc(msg)
 				timeTrackStop := time.Now()
