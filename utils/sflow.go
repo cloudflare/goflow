@@ -13,6 +13,8 @@ import (
 type StateSFlow struct {
 	Transport Transport
 	Logger    Logger
+
+	Config *producer.SFlowProducerConfig
 }
 
 func (s *StateSFlow) DecodeFlow(msg interface{}) error {
@@ -107,7 +109,7 @@ func (s *StateSFlow) DecodeFlow(msg interface{}) error {
 	}
 
 	var flowMessageSet []*flowmessage.FlowMessage
-	flowMessageSet, err = producer.ProcessMessageSFlow(msgDec)
+	flowMessageSet, err = producer.ProcessMessageSFlowConfig(msgDec, s.Config)
 
 	timeTrackStop := time.Now()
 	DecoderTime.With(
