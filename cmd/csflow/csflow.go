@@ -52,9 +52,14 @@ func main() {
 
 	lvl, _ := log.ParseLevel(*LogLevel)
 	log.SetLevel(lvl)
+
+	var defaultTransport utils.Transport
+	defaultTransport = &utils.DefaultLogTransport{}
+
 	switch *LogFmt {
 	case "json":
 		log.SetFormatter(&log.JSONFormatter{})
+		defaultTransport = &utils.DefaultJSONTransport{}
 	}
 
 	runtime.GOMAXPROCS(runtime.NumCPU())
@@ -62,7 +67,7 @@ func main() {
 	log.Info("Starting GoFlow")
 
 	s := &utils.StateSFlow{
-		Transport: &utils.DefaultLogTransport{},
+		Transport: defaultTransport,
 		Logger:    log.StandardLogger(),
 	}
 
