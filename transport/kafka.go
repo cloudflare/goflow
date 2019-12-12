@@ -4,16 +4,19 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
+	"strings"
+
 	flowmessage "github.com/cloudflare/goflow/pb"
 	"github.com/cloudflare/goflow/utils"
 	proto "github.com/golang/protobuf/proto"
+
 	//"github.com/golang/protobuf/descriptor"
 	"errors"
 	"flag"
-	sarama "github.com/Shopify/sarama"
 	"os"
 	"reflect"
-	"strings"
+
+	sarama "github.com/Shopify/sarama"
 )
 
 var (
@@ -27,6 +30,9 @@ var (
 
 	KafkaHashing *bool
 	KafkaKeying  *string
+	KafkaVersion *string
+
+	kafkaConfigVersion sarama.KafkaVersion = sarama.V0_11_0_0
 )
 
 type KafkaState struct {
@@ -34,6 +40,17 @@ type KafkaState struct {
 	topic    string
 	hashing  bool
 	keying   []string
+}
+
+// SetKafkaVersion sets the KafkaVersion that is used to set the log message format version
+func SetKafkaVersion(version sarama.KafkaVersion) {
+	kafkaConfigVersion = version
+}
+
+// ParseKafkaVersion is a pass through to sarama.ParseKafkaVersion to get a KafkaVersion struct by a string version that can be passed into SetKafkaVersion
+// This function is here so that calling code need not import sarama to set KafkaVersion
+func ParseKafkaVersion(versionString string) (sarama.KafkaVersion, error) {
+	return sarama.ParseKafkaVersion(versionString)
 }
 
 func RegisterFlags() {
@@ -47,9 +64,15 @@ func RegisterFlags() {
 
 	KafkaHashing = flag.Bool("kafka.hashing", false, "Enable partitioning by hash instead of random")
 	KafkaKeying = flag.String("kafka.key", "SamplerAddr,DstAS", "Kafka list of fields to do hashing on (partition) separated by commas")
+	KafkaVersion = flag.String("kafka.version", "0.11.0.0", "Log message version (must be a version that parses per sarama.ParseKafkaVersion)")
 }
 
 func StartKafkaProducerFromArgs(log utils.Logger) (*KafkaState, error) {
+	kVersion, err := ParseKafkaVersion(*KafkaVersion)
+	if err != nil {
+		return nil, err
+	}
+	SetKafkaVersion(kVersion)
 	addrs := make([]string, 0)
 	if *KafkaSrv != "" {
 		addrs, _ = utils.GetServiceAddresses(*KafkaSrv)
@@ -61,6 +84,7 @@ func StartKafkaProducerFromArgs(log utils.Logger) (*KafkaState, error) {
 
 func StartKafkaProducer(addrs []string, topic string, hashing bool, keying string, useTls bool, useSasl bool, logErrors bool, log utils.Logger) (*KafkaState, error) {
 	kafkaConfig := sarama.NewConfig()
+	kafkaConfig.Version = kafkaConfigVersion
 	kafkaConfig.Producer.Return.Successes = false
 	kafkaConfig.Producer.Return.Errors = logErrors
 	if useTls {
