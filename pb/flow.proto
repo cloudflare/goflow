@@ -36,7 +36,7 @@ message FlowMessage {
   bytes SrcAddr = 6;
   bytes DstAddr = 7;
 
-  // Layer 3 protocol (IPv4/IPv6/ARP/...)
+  // Layer 3 protocol (IPv4/IPv6/ARP/MPLS...)
   uint32 Etype = 30;
 
   // Layer 4 protocol
@@ -88,6 +88,30 @@ message FlowMessage {
   uint32 SrcNet = 16;
   uint32 DstNet = 17;
 
+  // IP encapsulation information
+  bool HasEncap = 43;
+  bytes SrcAddrEncap = 44;
+  bytes DstAddrEncap = 45;
+  uint32 ProtoEncap = 46;
+  uint32 EtypeEncap = 47;
+  
+  uint32 IPTosEncap = 48;
+  uint32 IPTTLEncap = 49;
+  uint32 IPv6FlowLabelEncap = 50;
+  uint32 FragmentIdEncap = 51;
+  uint32 FragmentOffsetEncap = 52;
+
+  // MPLS information
+  bool HasMPLS = 53;
+  uint32 MPLSCount = 54;
+  uint32 MPLS1TTL = 55; // First TTL
+  uint32 MPLS1Label = 56; // First Label
+  uint32 MPLS2TTL = 57; // Second TTL
+  uint32 MPLS2Label = 58; // Second Label
+  uint32 MPLS3TTL = 59; // Third TTL
+  uint32 MPLS3Label = 60; // Third Label
+  uint32 MPLSLastTTL = 61; // Last TTL
+  uint32 MPLSLastLabel = 62; // Last Label
 
   // Custom fields: start after ID 1000:
   // uint32 MyCustomField = 1000;
