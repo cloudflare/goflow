@@ -310,13 +310,13 @@ func SearchSFlowSamplesConfig(samples []interface{}, config *SFlowProducerConfig
 		case sflow.FlowSample:
 			records = flowSample.Records
 			flowMessage.SamplingRate = uint64(flowSample.SamplingRate)
-			flowMessage.SrcIf = flowSample.Input
-			flowMessage.DstIf = flowSample.Output
+			flowMessage.InIf = flowSample.Input
+			flowMessage.OutIf = flowSample.Output
 		case sflow.ExpandedFlowSample:
 			records = flowSample.Records
 			flowMessage.SamplingRate = uint64(flowSample.SamplingRate)
-			flowMessage.SrcIf = flowSample.InputIfValue
-			flowMessage.DstIf = flowSample.OutputIfValue
+			flowMessage.InIf = flowSample.InputIfValue
+			flowMessage.OutIf = flowSample.OutputIfValue
 		}
 
 		ipNh := net.IP{}
