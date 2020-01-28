@@ -196,12 +196,18 @@ func ParseSampledHeaderConfig(flowMessage *flowmessage.FlowMessage, sampledHeade
 				identificationEncap = identification
 				fragOffsetEncap = fragOffset
 				flowLabelEncap = flowLabel
+				nextHeader, tos, ttl, identification, fragOffset, flowLabel = 0, 0, 0, 0, 0, 0
 
 				if (etherType[0] == 0x8 && etherType[1] == 0x0) ||
 					(etherType[0] == 0x86 && etherType[1] == 0xdd) {
 					srcIPEncap = srcIP
 					dstIPEncap = dstIP
 					encap = true
+				}
+				if etherType[0] == 0x88 && etherType[1] == 0x0b { // PPP
+					srcIPEncap = srcIP
+					dstIPEncap = dstIP
+					srcIP, dstIP = nil, nil
 				}
 				offset += 4
 
