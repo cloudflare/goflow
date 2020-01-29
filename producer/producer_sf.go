@@ -226,10 +226,6 @@ func ParseSampledHeaderConfig(flowMessage *flowmessage.FlowMessage, sampledHeade
 			nextHeaderEncap = nextHeader
 			nextHeader = tmpNextHeader
 
-			nextHeaderTmp := nextHeaderEncap
-			nextHeaderEncap = nextHeader
-			nextHeader = nextHeaderTmp
-
 			tosTmp := tosEncap
 			tosEncap = tos
 			tos = tosTmp
