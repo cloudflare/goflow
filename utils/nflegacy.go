@@ -23,6 +23,11 @@ func (s *StateNFLegacy) DecodeFlow(msg interface{}) error {
 		samplerAddress = samplerAddress.To4()
 	}
 
+	ts := uint64(time.Now().UTC().Unix())
+	if pkt.SetTime {
+		ts = uint64(pkt.RecvTime.UTC().Unix())
+	}
+
 	timeTrackStart := time.Now()
 	msgDec, err := netflowlegacy.DecodeMessage(buf)
 
@@ -67,7 +72,7 @@ func (s *StateNFLegacy) DecodeFlow(msg interface{}) error {
 		Observe(float64((timeTrackStop.Sub(timeTrackStart)).Nanoseconds()) / 1000)
 
 	for _, fmsg := range flowMessageSet {
-		fmsg.TimeReceived = uint64(time.Now().UTC().Unix())
+		fmsg.TimeReceived = ts
 		fmsg.SamplerAddress = samplerAddress
 	}
 

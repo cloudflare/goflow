@@ -85,6 +85,11 @@ func (s *StateNetFlow) DecodeFlow(msg interface{}) error {
 	}
 	s.samplinglock.RUnlock()
 
+	ts := uint64(time.Now().UTC().Unix())
+	if pkt.SetTime {
+		ts = uint64(pkt.RecvTime.UTC().Unix())
+	}
+
 	timeTrackStart := time.Now()
 	msgDec, err := netflow.DecodeMessage(buf, templates)
 	if err != nil {
@@ -205,7 +210,7 @@ func (s *StateNetFlow) DecodeFlow(msg interface{}) error {
 		flowMessageSet, err = producer.ProcessMessageNetFlow(msgDecConv, sampling)
 
 		for _, fmsg := range flowMessageSet {
-			fmsg.TimeReceived = uint64(time.Now().UTC().Unix())
+			fmsg.TimeReceived = ts
 			fmsg.SamplerAddress = samplerAddress
 			timeDiff := fmsg.TimeReceived - fmsg.TimeFlowEnd
 			NetFlowTimeStatsSum.With(
@@ -298,7 +303,7 @@ func (s *StateNetFlow) DecodeFlow(msg interface{}) error {
 		flowMessageSet, err = producer.ProcessMessageNetFlow(msgDecConv, sampling)
 
 		for _, fmsg := range flowMessageSet {
-			fmsg.TimeReceived = uint64(time.Now().UTC().Unix())
+			fmsg.TimeReceived = ts
 			fmsg.SamplerAddress = samplerAddress
 			timeDiff := fmsg.TimeReceived - fmsg.TimeFlowEnd
 			NetFlowTimeStatsSum.With(

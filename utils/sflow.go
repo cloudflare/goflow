@@ -22,6 +22,11 @@ func (s *StateSFlow) DecodeFlow(msg interface{}) error {
 	buf := bytes.NewBuffer(pkt.Payload)
 	key := pkt.Src.String()
 
+	ts := uint64(time.Now().UTC().Unix())
+	if pkt.SetTime {
+		ts = uint64(pkt.RecvTime.UTC().Unix())
+	}
+
 	timeTrackStart := time.Now()
 	msgDec, err := sflow.DecodeMessage(buf)
 
@@ -118,7 +123,6 @@ func (s *StateSFlow) DecodeFlow(msg interface{}) error {
 		}).
 		Observe(float64((timeTrackStop.Sub(timeTrackStart)).Nanoseconds()) / 1000)
 
-	ts := uint64(time.Now().UTC().Unix())
 	for _, fmsg := range flowMessageSet {
 		fmsg.TimeReceived = ts
 		fmsg.TimeFlowStart = ts

@@ -41,6 +41,9 @@ type BaseMessage struct {
 	Src     net.IP
 	Port    int
 	Payload []byte
+
+	SetTime  bool
+	RecvTime time.Time
 }
 
 type Transport interface {
