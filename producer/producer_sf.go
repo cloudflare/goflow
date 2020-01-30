@@ -186,24 +186,29 @@ func ParseSampledHeaderConfig(flowMessage *flowmessage.FlowMessage, sampledHeade
 
 			// GRE
 			if len(data) >= offset+4 && nextHeader == 47 {
-				hasEncap = true
-				copy(etherTypeEncap, etherType)
-				etherType = data[offset+2 : offset+4]
-
-				nextHeaderEncap = nextHeader
-				tosEncap = tos
-				ttlEncap = ttl
-				identificationEncap = identification
-				fragOffsetEncap = fragOffset
-				flowLabelEncap = flowLabel
-
-				if (etherType[0] == 0x8 && etherType[1] == 0x0) ||
-					(etherType[0] == 0x86 && etherType[1] == 0xdd) {
-					srcIPEncap = srcIP
-					dstIPEncap = dstIP
+				etherTypeEncap = data[offset+2 : offset+4]
+				if (etherTypeEncap[0] == 0x8 && etherTypeEncap[1] == 0x0) ||
+					(etherTypeEncap[0] == 0x86 && etherTypeEncap[1] == 0xdd) {
 					encap = true
+					hasEncap = true
 				}
 				offset += 4
+
+				if hasEncap {
+					srcIPEncap = srcIP
+					dstIPEncap = dstIP
+
+					nextHeaderEncap = nextHeader
+					tosEncap = tos
+					ttlEncap = ttl
+					identificationEncap = identification
+					fragOffsetEncap = fragOffset
+					flowLabelEncap = flowLabel
+
+					etherTypeEncapTmp := etherTypeEncap
+					etherTypeEncap = etherType
+					etherType = etherTypeEncapTmp
+				}
 
 			}
 			iterations++
@@ -218,17 +223,9 @@ func ParseSampledHeaderConfig(flowMessage *flowmessage.FlowMessage, sampledHeade
 			srcIP = tmpSrc
 			dstIP = tmpDst
 
-			tmpEtype := etherTypeEncap
-			etherTypeEncap = etherType
-			etherType = tmpEtype
-
 			tmpNextHeader := nextHeaderEncap
 			nextHeaderEncap = nextHeader
 			nextHeader = tmpNextHeader
-
-			nextHeaderTmp := nextHeaderEncap
-			nextHeaderEncap = nextHeader
-			nextHeader = nextHeaderTmp
 
 			tosTmp := tosEncap
 			tosEncap = tos
