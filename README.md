@@ -175,7 +175,7 @@ You can find information on how they are populated from the original source:
 |IcmpCode|ICMP Code| |Included|ICMP_TYPE (32)|icmpCodeXXX (177, 179) icmpTypeCodeXXX (32, 139)|
 |IPv6FlowLabel|IPv6 Flow Label| |Included|IPV6_FLOW_LABEL (31)|flowLabelIPv6 (31)|
 |FragmentId|IP Fragment ID| |Included|IPV4_IDENT (54)|fragmentIdentification (54)|
-|FragmentOffset|IP Fragment Offset| |Included|FRAGMENT_OFFSET (88)|fragmentOffset (88)|
+|FragmentOffset|IP Fragment Offset| |Included|FRAGMENT_OFFSET (88)|fragmentOffset (88) and fragmentFlags (197)|
 |BiFlowDirection|BiFlow Identification| | | |biflowDirection (239)|
 |SrcAS|Source AS number|src_as|From ExtendedGateway|SRC_AS (16)|bgpSourceAsNumber (16)|
 |DstAS|Destination AS number|dst_as|From ExtendedGateway|DST_AS (17)|bgpDestinationAsNumber (17)|
@@ -183,6 +183,12 @@ You can find information on how they are populated from the original source:
 |NextHopAS|Nexthop AS number| |From ExtendedGateway| | |
 |SrcNet|Source address mask|src_mask|From ExtendedRouter|SRC_MASK (9) IPV6_SRC_MASK (29)|sourceIPv4PrefixLength (9) sourceIPv6PrefixLength (29)|
 |DstNet|Destination address mask|dst_mask|From ExtendedRouter|DST_MASK (13) IPV6_DST_MASK (30)|destinationIPv4PrefixLength (13) destinationIPv6PrefixLength (30)|
+|HasEncap|Indicates if has GRE encapsulation||Included|||
+|xxxEncap fields|Same as field but inside GRE||Included|||
+|HasMPLS|Indicates the presence of MPLS header||Included|||
+|MPLSCount|Count of MPLS layers||Included|||
+|MPLSxTTL|TTL of the MPLS label||Included|||
+|MPLSxLabel|MPLS label||Included|||
 
 If you are implementing flow processors to add more data to the protobuf,
 we suggest you use field IDs ≥ 1000.
