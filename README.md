@@ -158,8 +158,8 @@ You can find information on how they are populated from the original source:
 |Proto|Protocol (UDP, TCP, ICMP...)|prot|Included|PROTOCOL (4)|protocolIdentifier (4)|
 |SrcPort|Source port (when UDP/TCP/SCTP)|srcport|Included|L4_DST_PORT (11)|destinationTransportPort (11)|
 |DstPort|Destination port (when UDP/TCP/SCTP)|dstport|Included|L4_SRC_PORT (7)|sourceTransportPort (7)|
-|SrcIf|Source interface|input|Included|INPUT_SNMP (10)|ingressInterface (10)|
-|DstIf|Destination interface|output|Included|OUTPUT_SNMP (14)|egressInterface (14)|
+|InIf|Input interface|input|Included|INPUT_SNMP (10)|ingressInterface (10)|
+|OutIf|Output interface|output|Included|OUTPUT_SNMP (14)|egressInterface (14)|
 |SrcMac|Source mac address| |Included|IN_SRC_MAC (56)|sourceMacAddress (56)|
 |DstMac|Destination mac address| |Included|OUT_DST_MAC (57)|postDestinationMacAddress (57)|
 |SrcVlan|Source VLAN ID| |From ExtendedSwitch|SRC_VLAN (59)|vlanId (58)|

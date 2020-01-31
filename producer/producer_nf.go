@@ -182,9 +182,9 @@ func ConvertNetFlowDataSet(version uint16, baseTime uint32, uptime uint32, recor
 
 		// Interfaces
 		case netflow.NFV9_FIELD_INPUT_SNMP:
-			DecodeUNumber(v, &(flowMessage.SrcIf))
+			DecodeUNumber(v, &(flowMessage.InIf))
 		case netflow.NFV9_FIELD_OUTPUT_SNMP:
-			DecodeUNumber(v, &(flowMessage.DstIf))
+			DecodeUNumber(v, &(flowMessage.OutIf))
 
 		case netflow.NFV9_FIELD_FORWARDING_STATUS:
 			DecodeUNumber(v, &(flowMessage.ForwardingStatus))

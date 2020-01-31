@@ -47,8 +47,8 @@ message FlowMessage {
   uint32 DstPort = 22;
 
   // Interfaces
-  uint32 SrcIf = 18;
-  uint32 DstIf = 19;
+  uint32 InIf = 18;
+  uint32 OutIf = 19;
 
   // Ethernet information
   uint64 SrcMac = 27;
