@@ -98,7 +98,8 @@ func FlowMessageToString(fmsg *flowmessage.FlowMessage) string {
 		"FragmentId:%v FragmentOffset:%v BiFlowDirection:%v SrcAS:%v DstAS:%v NextHop:%v NextHopAS:%v SrcNet:%v DstNet:%v "+
 		"HasEncap:%v SrcAddrEncap:%v DstAddrEncap:%v ProtoEncap:%v EtypeEncap:%v "+
 		"IPTosEncap:%v IPTTLEncap:%v IPv6FlowLabelEncap:%v FragmentIdEncap:%v FragmentOffsetEncap:%v "+
-		"HasMPLS:%v MPLSCount:%v MPLS1TTL:%v MPLS1Label:%v MPLS2TTL:%v, MPLS2Label: %v, MPLS3TTL:%v MPLS3Label:%v MPLSLastTTL:%v MPLSLastLabel:%v",
+		"HasMPLS:%v MPLSCount:%v MPLS1TTL:%v MPLS1Label:%v MPLS2TTL:%v, MPLS2Label: %v, MPLS3TTL:%v MPLS3Label:%v MPLSLastTTL:%v MPLSLastLabel:%v "+
+		"HasPPP:%v PPPAddressControl:%v",
 		fmsg.Type, fmsg.TimeReceived, fmsg.SequenceNum, fmsg.SamplingRate, net.IP(fmsg.SamplerAddress),
 		fmsg.TimeFlowStart, fmsg.TimeFlowEnd, fmsg.Bytes, fmsg.Packets, net.IP(fmsg.SrcAddr), net.IP(fmsg.DstAddr),
 		fmsg.Etype, fmsg.Proto, fmsg.SrcPort, fmsg.DstPort, fmsg.InIf, fmsg.OutIf, net.HardwareAddr(srcmac),
@@ -108,7 +109,8 @@ func FlowMessageToString(fmsg *flowmessage.FlowMessage) string {
 		net.IP(fmsg.NextHop), fmsg.NextHopAS, fmsg.SrcNet, fmsg.DstNet,
 		fmsg.HasEncap, net.IP(fmsg.SrcAddrEncap), net.IP(fmsg.DstAddrEncap), fmsg.ProtoEncap, fmsg.EtypeEncap,
 		fmsg.IPTosEncap, fmsg.IPTTLEncap, fmsg.IPv6FlowLabelEncap, fmsg.FragmentIdEncap, fmsg.FragmentOffsetEncap,
-		fmsg.HasMPLS, fmsg.MPLSCount, fmsg.MPLS1TTL, fmsg.MPLS1Label, fmsg.MPLS2TTL, fmsg.MPLS2Label, fmsg.MPLS3TTL, fmsg.MPLS3Label, fmsg.MPLSLastTTL, fmsg.MPLSLastLabel)
+		fmsg.HasMPLS, fmsg.MPLSCount, fmsg.MPLS1TTL, fmsg.MPLS1Label, fmsg.MPLS2TTL, fmsg.MPLS2Label, fmsg.MPLS3TTL, fmsg.MPLS3Label, fmsg.MPLSLastTTL, fmsg.MPLSLastLabel,
+		fmsg.HasPPP, fmsg.PPPAddressControl)
 	return s
 }
 
@@ -128,7 +130,8 @@ func FlowMessageToJSON(fmsg *flowmessage.FlowMessage) string {
 		"\"FragmentId\":%v,\"FragmentOffset\":%v,\"BiFlowDirection\":%v,\"SrcAS\":%v,\"DstAS\":%v,\"NextHop\":\"%v\",\"NextHopAS\":%v,\"SrcNet\":%v,\"DstNet\":%v,"+
 		"\"HasEncap\":%v,\"SrcAddrEncap\":\"%v\",\"DstAddrEncap\":\"%v\",\"ProtoEncap\":%v,\"EtypeEncap\":%v,"+
 		"\"IPTosEncap\":%v,\"IPTTLEncap\":%v,\"IPv6FlowLabelEncap\":%v,\"FragmentIdEncap\":%v,\"FragmentOffsetEncap\":%v,"+
-		"\"HasMPLS\":%v,\"MPLSCount\":%v,\"MPLS1TTL\":%v,\"MPLS1Label\":%v,\"MPLS2TTL\":%v,\"MPLS2Label\":%v,\"MPLS3TTL\":%v,\"MPLS3Label\":%v,\"MPLSLastTTL\":%v,\"MPLSLastLabel\":%v}",
+		"\"HasMPLS\":%v,\"MPLSCount\":%v,\"MPLS1TTL\":%v,\"MPLS1Label\":%v,\"MPLS2TTL\":%v,\"MPLS2Label\":%v,\"MPLS3TTL\":%v,\"MPLS3Label\":%v,\"MPLSLastTTL\":%v,\"MPLSLastLabel\":%v,"+
+		"\"HasPPP\":%v,\"PPPAddressControl\":%v}",
 		fmsg.Type, fmsg.TimeReceived, fmsg.SequenceNum, fmsg.SamplingRate, net.IP(fmsg.SamplerAddress),
 		fmsg.TimeFlowStart, fmsg.TimeFlowEnd, fmsg.Bytes, fmsg.Packets, net.IP(fmsg.SrcAddr), net.IP(fmsg.DstAddr),
 		fmsg.Etype, fmsg.Proto, fmsg.SrcPort, fmsg.DstPort, fmsg.InIf, fmsg.OutIf, net.HardwareAddr(srcmac),
@@ -138,7 +141,8 @@ func FlowMessageToJSON(fmsg *flowmessage.FlowMessage) string {
 		net.IP(fmsg.NextHop), fmsg.NextHopAS, fmsg.SrcNet, fmsg.DstNet,
 		fmsg.HasEncap, net.IP(fmsg.SrcAddrEncap), net.IP(fmsg.DstAddrEncap), fmsg.ProtoEncap, fmsg.EtypeEncap,
 		fmsg.IPTosEncap, fmsg.IPTTLEncap, fmsg.IPv6FlowLabelEncap, fmsg.FragmentIdEncap, fmsg.FragmentOffsetEncap,
-		fmsg.HasMPLS, fmsg.MPLSCount, fmsg.MPLS1TTL, fmsg.MPLS1Label, fmsg.MPLS2TTL, fmsg.MPLS2Label, fmsg.MPLS3TTL, fmsg.MPLS3Label, fmsg.MPLSLastTTL, fmsg.MPLSLastLabel)
+		fmsg.HasMPLS, fmsg.MPLSCount, fmsg.MPLS1TTL, fmsg.MPLS1Label, fmsg.MPLS2TTL, fmsg.MPLS2Label, fmsg.MPLS3TTL, fmsg.MPLS3Label, fmsg.MPLSLastTTL, fmsg.MPLSLastLabel,
+		fmsg.HasPPP, fmsg.PPPAddressControl)
 	return s
 }
 
