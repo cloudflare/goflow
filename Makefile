@@ -1,21 +1,22 @@
 EXTENSION ?= 
 DIST_DIR ?= dist/
-GOOS ?= linux
+GOOS ?= $(shell uname -s)
 ARCH ?= $(shell uname -m)
 BUILDINFOSDET ?= 
 
-DOCKER_REPO   := cloudflare/
+DOCKER_REPO    := cloudflare/
 GOFLOW_NAME    := goflow
 GOFLOW_VERSION := $(shell git describe --tags $(git rev-list --tags --max-count=1))
-VERSION_PKG   := $(shell echo $(GOFLOW_VERSION) | sed 's/^v//g')
-ARCH          := x86_64
-LICENSE       := BSD-3
-URL           := https://github.com/cloudflare/goflow
-DESCRIPTION   := GoFlow: an sFlow/IPFIX/NetFlow v9/v5 collector to Kafka
-BUILDINFOS    :=  ($(shell date +%FT%T%z)$(BUILDINFOSDET))
-LDFLAGS       := '-X main.version=$(GOFLOW_VERSION) -X main.buildinfos=$(BUILDINFOS)'
+VERSION_PKG    := $(shell echo $(GOFLOW_VERSION) | sed 's/^v//g')
+ARCH           := x86_64
+LICENSE        := BSD-3
+URL            := https://github.com/cloudflare/goflow
+DESCRIPTION    := GoFlow: an sFlow/IPFIX/NetFlow v9/v5 collector to Kafka
+BUILDINFOS     := ($(shell date +%FT%T%z)$(BUILDINFOSDET))
+LDFLAGS        := '-X main.version=$(GOFLOW_VERSION) -X main.buildinfos=$(BUILDINFOS)'
 
-OUTPUT_GOFLOW := $(DIST_DIR)goflow-$(GOFLOW_VERSION)-$(GOOS)-$(ARCH)$(EXTENSION)
+OUTPUT_GOFLOW   := $(DIST_DIR)goflow-$(GOFLOW_VERSION)-$(GOOS)-$(ARCH)$(EXTENSION)
+OUTPUT_GONPROBE := $(DIST_DIR)gonprobe-$(GOFLOW_VERSION)-$(GOOS)-$(ARCH)$(EXTENSION)
 
 OUTPUT_GOFLOW_LIGHT_SFLOW := $(DIST_DIR)goflow-sflow-$(GOFLOW_VERSION)-$(GOOS)-$(ARCH)$(EXTENSION)
 OUTPUT_GOFLOW_LIGHT_NF    := $(DIST_DIR)goflow-netflow-$(GOFLOW_VERSION)-$(GOOS)-$(ARCH)$(EXTENSION)
@@ -55,6 +56,10 @@ clean:
 .PHONY: build-goflow
 build-goflow: prepare
 	go build -ldflags $(LDFLAGS) -o $(OUTPUT_GOFLOW) cmd/goflow/goflow.go
+
+.PHONY: build-gonprobe
+build-gonprobe: prepare
+	go build -ldflags $(LDFLAGS) -o $(OUTPUT_GONPROBE) cmd/gonprobe/gonprobe.go
 
 .PHONY: build-goflow-light
 build-goflow-light: prepare

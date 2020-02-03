@@ -1,0 +1,11 @@
+[Unit]
+Description=Go-nProbe
+After=network.target
+
+[Service]
+Type=simple
+EnvironmentFile=/etc/default/gonprobe
+ExecStart=/usr/bin/gonprobe $GONPROBE_ARGS
+
+[Install]
+WantedBy=multi-user.target
