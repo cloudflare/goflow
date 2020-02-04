@@ -1,8 +1,8 @@
 package producer
 
 import (
-	"github.com/cloudflare/goflow/decoders/netflow"
-	"github.com/cloudflare/goflow/decoders/sflow"
+	"github.com/cloudflare/goflow/v3/decoders/netflow"
+	"github.com/cloudflare/goflow/v3/decoders/sflow"
 	"github.com/stretchr/testify/assert"
 	"testing"
 )

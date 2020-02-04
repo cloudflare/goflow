@@ -3,9 +3,9 @@ package utils
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/cloudflare/goflow/decoders/netflow"
-	flowmessage "github.com/cloudflare/goflow/pb"
-	"github.com/cloudflare/goflow/producer"
+	"github.com/cloudflare/goflow/v3/decoders/netflow"
+	flowmessage "github.com/cloudflare/goflow/v3/pb"
+	"github.com/cloudflare/goflow/v3/producer"
 	"github.com/prometheus/client_golang/prometheus"
 	"net/http"
 	"strconv"

@@ -3,7 +3,7 @@ package netflowlegacy
 import (
 	"bytes"
 	"fmt"
-	"github.com/cloudflare/goflow/decoders/utils"
+	"github.com/cloudflare/goflow/v3/decoders/utils"
 )
 
 type ErrorVersion struct {
