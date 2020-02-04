@@ -3,18 +3,15 @@ package main
 import (
 	"flag"
 	"fmt"
+	"net/http"
 	"os"
 	"runtime"
+	"sync"
 
 	"github.com/cloudflare/goflow/v3/transport"
 	"github.com/cloudflare/goflow/v3/utils"
-	log "github.com/sirupsen/logrus"
-
-	"net/http"
-
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-
-	"sync"
+	log "github.com/sirupsen/logrus"
 )
 
 var (
