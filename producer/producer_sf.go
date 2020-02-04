@@ -3,9 +3,10 @@ package producer
 import (
 	"encoding/binary"
 	"errors"
+	"net"
+
 	"github.com/cloudflare/goflow/v3/decoders/sflow"
 	flowmessage "github.com/cloudflare/goflow/v3/pb"
-	"net"
 )
 
 func GetSFlowFlowSamples(packet *sflow.Packet) []interface{} {

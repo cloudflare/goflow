@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+
 	"github.com/cloudflare/goflow/v3/decoders/utils"
 )
 

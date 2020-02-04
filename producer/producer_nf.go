@@ -5,11 +5,12 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/cloudflare/goflow/v3/decoders/netflow"
-	flowmessage "github.com/cloudflare/goflow/v3/pb"
 	"net"
 	"sync"
 	"time"
+
+	"github.com/cloudflare/goflow/v3/decoders/netflow"
+	flowmessage "github.com/cloudflare/goflow/v3/pb"
 )
 
 type SamplingRateSystem interface {

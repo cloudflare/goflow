@@ -2,12 +2,13 @@ package utils
 
 import (
 	"bytes"
+	"net"
+	"time"
+
 	"github.com/cloudflare/goflow/v3/decoders/sflow"
 	flowmessage "github.com/cloudflare/goflow/v3/pb"
 	"github.com/cloudflare/goflow/v3/producer"
 	"github.com/prometheus/client_golang/prometheus"
-	"net"
-	"time"
 )
 
 type StateSFlow struct {

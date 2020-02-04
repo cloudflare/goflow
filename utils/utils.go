@@ -4,14 +4,15 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/cloudflare/goflow/v3/decoders"
+	"net"
+	"strconv"
+	"time"
+
+	decoder "github.com/cloudflare/goflow/v3/decoders"
 	"github.com/cloudflare/goflow/v3/decoders/netflow"
 	flowmessage "github.com/cloudflare/goflow/v3/pb"
 	reuseport "github.com/libp2p/go-reuseport"
 	"github.com/prometheus/client_golang/prometheus"
-	"net"
-	"strconv"
-	"time"
 )
 
 func GetServiceAddresses(srv string) (addrs []string, err error) {
