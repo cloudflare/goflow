@@ -4,8 +4,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"github.com/cloudflare/goflow/decoders/utils"
 	"sync"
+
+	"github.com/cloudflare/goflow/v3/decoders/utils"
 )
 
 type FlowBaseTemplateSet map[uint16]map[uint32]map[uint16]interface{}

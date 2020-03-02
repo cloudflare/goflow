@@ -3,20 +3,17 @@ package transport
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"fmt"
-	"strings"
-
-	flowmessage "github.com/cloudflare/goflow/pb"
-	"github.com/cloudflare/goflow/utils"
-	proto "github.com/golang/protobuf/proto"
-
-	//"github.com/golang/protobuf/descriptor"
 	"errors"
 	"flag"
+	"fmt"
 	"os"
 	"reflect"
+	"strings"
 
 	sarama "github.com/Shopify/sarama"
+	flowmessage "github.com/cloudflare/goflow/v3/pb"
+	"github.com/cloudflare/goflow/v3/utils"
+	proto "github.com/golang/protobuf/proto"
 )
 
 var (

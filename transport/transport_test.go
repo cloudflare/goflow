@@ -1,9 +1,10 @@
 package transport
 
 import (
-	flowmessage "github.com/cloudflare/goflow/pb"
-	"github.com/stretchr/testify/assert"
 	"testing"
+
+	flowmessage "github.com/cloudflare/goflow/v3/pb"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestHash(t *testing.T) {
