@@ -271,8 +271,13 @@ func ConvertNetFlowDataSet(version uint16, baseTime uint32, uptime uint32, recor
 		case netflow.NFV9_FIELD_IPV4_IDENT:
 			DecodeUNumber(v, &(flowMessage.FragmentId))
 		case netflow.NFV9_FIELD_FRAGMENT_OFFSET:
-			DecodeUNumber(v, &(flowMessage.FragmentOffset))
-
+			var fragOffset uint32
+			DecodeUNumber(v, &fragOffset)
+			flowMessage.FragmentOffset |= fragOffset
+		case netflow.IPFIX_FIELD_fragmentFlags:
+			var ipFlags uint32
+			DecodeUNumber(v, &ipFlags)
+			flowMessage.FragmentOffset |= ipFlags
 		case netflow.NFV9_FIELD_IPV6_FLOW_LABEL:
 			DecodeUNumber(v, &(flowMessage.IPv6FlowLabel))
 
