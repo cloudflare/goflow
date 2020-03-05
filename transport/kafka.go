@@ -60,7 +60,7 @@ func RegisterFlags() {
 	KafkaLogErrors = flag.Bool("kafka.log.err", false, "Log Kafka errors")
 
 	KafkaHashing = flag.Bool("kafka.hashing", false, "Enable partitioning by hash instead of random")
-	KafkaKeying = flag.String("kafka.key", "SamplerAddr,DstAS", "Kafka list of fields to do hashing on (partition) separated by commas")
+	KafkaKeying = flag.String("kafka.key", "SamplerAddress,DstAS", "Kafka list of fields to do hashing on (partition) separated by commas")
 	KafkaVersion = flag.String("kafka.version", "0.11.0.0", "Log message version (must be a version that parses per sarama.ParseKafkaVersion)")
 }
 
