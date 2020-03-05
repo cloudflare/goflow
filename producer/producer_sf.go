@@ -3,10 +3,9 @@ package producer
 import (
 	"encoding/binary"
 	"errors"
+	"github.com/cloudflare/goflow/decoders/sflow"
+	flowmessage "github.com/cloudflare/goflow/pb"
 	"net"
-
-	"github.com/cloudflare/goflow/v3/decoders/sflow"
-	flowmessage "github.com/cloudflare/goflow/v3/pb"
 )
 
 func GetSFlowFlowSamples(packet *sflow.Packet) []interface{} {
@@ -39,8 +38,6 @@ func ParseSampledHeaderConfig(flowMessage *flowmessage.FlowMessage, sampledHeade
 	data := (*sampledHeader).HeaderData
 	switch (*sampledHeader).Protocol {
 	case 1: // Ethernet
-		var hasPPP bool
-		var pppAddressControl uint16
 		var hasMPLS bool
 		var countMpls uint32
 		var firstLabelMpls uint32
@@ -190,28 +187,12 @@ func ParseSampledHeaderConfig(flowMessage *flowmessage.FlowMessage, sampledHeade
 			// GRE
 			if len(data) >= offset+4 && nextHeader == 47 {
 				etherTypeEncap = data[offset+2 : offset+4]
-				offset += 4
 				if (etherTypeEncap[0] == 0x8 && etherTypeEncap[1] == 0x0) ||
 					(etherTypeEncap[0] == 0x86 && etherTypeEncap[1] == 0xdd) {
 					encap = true
 					hasEncap = true
 				}
-				if etherTypeEncap[0] == 0x88 && etherTypeEncap[1] == 0x0b && len(data) >= offset+12 {
-					offset += 8
-					encap = true
-					hasPPP = true
-					pppAddressControl = binary.BigEndian.Uint16(data[offset : offset+2])
-					pppEtherType := data[offset+2 : offset+4]
-					if pppEtherType[0] == 0x0 && pppEtherType[1] == 0x21 {
-						etherTypeEncap = []byte{0x8, 0x00}
-						hasEncap = true
-					} else if pppEtherType[0] == 0x0 && pppEtherType[1] == 0x57 {
-						etherTypeEncap = []byte{0x86, 0xdd}
-						hasEncap = true
-					}
-					offset += 4
-
-				}
+				offset += 4
 
 				if hasEncap {
 					srcIPEncap = srcIP
@@ -266,9 +247,6 @@ func ParseSampledHeaderConfig(flowMessage *flowmessage.FlowMessage, sampledHeade
 			flowLabelEncap = flowLabel
 			flowLabel = flowLabelTmp
 		}
-
-		(*flowMessage).HasPPP = hasPPP
-		(*flowMessage).PPPAddressControl = uint32(pppAddressControl)
 
 		(*flowMessage).HasMPLS = hasMPLS
 		(*flowMessage).MPLSCount = countMpls

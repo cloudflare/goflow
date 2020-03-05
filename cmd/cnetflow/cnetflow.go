@@ -3,14 +3,14 @@ package main
 import (
 	"flag"
 	"fmt"
-	"net/http"
+	"github.com/cloudflare/goflow/transport"
+	"github.com/cloudflare/goflow/utils"
+	log "github.com/sirupsen/logrus"
 	"os"
 	"runtime"
 
-	"github.com/cloudflare/goflow/v3/transport"
-	"github.com/cloudflare/goflow/v3/utils"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	log "github.com/sirupsen/logrus"
+	"net/http"
 )
 
 var (

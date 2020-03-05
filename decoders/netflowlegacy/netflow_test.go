@@ -2,9 +2,8 @@ package netflowlegacy
 
 import (
 	"bytes"
-	"testing"
-
 	"github.com/stretchr/testify/assert"
+	"testing"
 )
 
 func TestDecodeNetFlowV5(t *testing.T) {

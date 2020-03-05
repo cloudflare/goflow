@@ -5,12 +5,11 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"github.com/cloudflare/goflow/decoders/netflow"
+	flowmessage "github.com/cloudflare/goflow/pb"
 	"net"
 	"sync"
 	"time"
-
-	"github.com/cloudflare/goflow/v3/decoders/netflow"
-	flowmessage "github.com/cloudflare/goflow/v3/pb"
 )
 
 type SamplingRateSystem interface {
@@ -271,13 +270,8 @@ func ConvertNetFlowDataSet(version uint16, baseTime uint32, uptime uint32, recor
 		case netflow.NFV9_FIELD_IPV4_IDENT:
 			DecodeUNumber(v, &(flowMessage.FragmentId))
 		case netflow.NFV9_FIELD_FRAGMENT_OFFSET:
-			var fragOffset uint32
-			DecodeUNumber(v, &fragOffset)
-			flowMessage.FragmentOffset |= fragOffset
-		case netflow.IPFIX_FIELD_fragmentFlags:
-			var ipFlags uint32
-			DecodeUNumber(v, &ipFlags)
-			flowMessage.FragmentOffset |= ipFlags
+			DecodeUNumber(v, &(flowMessage.FragmentOffset))
+
 		case netflow.NFV9_FIELD_IPV6_FLOW_LABEL:
 			DecodeUNumber(v, &(flowMessage.IPv6FlowLabel))
 

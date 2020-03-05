@@ -1,10 +1,9 @@
 package utils
 
 import (
+	"github.com/prometheus/client_golang/prometheus"
 	"strconv"
 	"time"
-
-	"github.com/prometheus/client_golang/prometheus"
 )
 
 var (

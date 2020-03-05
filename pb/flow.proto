@@ -113,10 +113,6 @@ message FlowMessage {
   uint32 MPLSLastTTL = 61; // Last TTL
   uint32 MPLSLastLabel = 62; // Last Label
 
-  // PPP information
-  bool HasPPP = 63;
-  uint32 PPPAddressControl = 64;
-
   // Custom fields: start after ID 1000:
   // uint32 MyCustomField = 1000;
 

@@ -2,12 +2,11 @@ package utils
 
 import (
 	"bytes"
-	"time"
-
-	"github.com/cloudflare/goflow/v3/decoders/netflowlegacy"
-	flowmessage "github.com/cloudflare/goflow/v3/pb"
-	"github.com/cloudflare/goflow/v3/producer"
+	"github.com/cloudflare/goflow/decoders/netflowlegacy"
+	flowmessage "github.com/cloudflare/goflow/pb"
+	"github.com/cloudflare/goflow/producer"
 	"github.com/prometheus/client_golang/prometheus"
+	"time"
 )
 
 type StateNFLegacy struct {
