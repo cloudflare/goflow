@@ -33,10 +33,11 @@ var (
 )
 
 type KafkaState struct {
-	producer sarama.AsyncProducer
-	topic    string
-	hashing  bool
-	keying   []string
+	FixedLengthProto bool
+	producer         sarama.AsyncProducer
+	topic            string
+	hashing          bool
+	keying           []string
 }
 
 // SetKafkaVersion sets the KafkaVersion that is used to set the log message format version
@@ -164,7 +165,14 @@ func (s KafkaState) SendKafkaFlowMessage(flowMessage *flowmessage.FlowMessage) {
 		keyStr := HashProto(s.keying, flowMessage)
 		key = sarama.StringEncoder(keyStr)
 	}
-	b, _ := proto.Marshal(flowMessage)
+	var b []byte
+	if !s.FixedLengthProto {
+		b, _ = proto.Marshal(flowMessage)
+	} else {
+		buf := proto.NewBuffer([]byte{})
+		buf.EncodeMessage(flowMessage)
+		b = buf.Bytes()
+	}
 	s.producer.Input() <- &sarama.ProducerMessage{
 		Topic: s.topic,
 		Key:   key,
