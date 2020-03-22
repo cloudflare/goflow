@@ -39,6 +39,7 @@ var (
 	LogFmt   = flag.String("logfmt", "normal", "Log formatter")
 
 	EnableKafka = flag.Bool("kafka", true, "Enable Kafka")
+	FixedLength = flag.Bool("proto.fixedlen", false, "Enable fixed length protobuf")
 	MetricsAddr = flag.String("metrics.addr", ":8080", "Metrics address")
 	MetricsPath = flag.String("metrics.path", "/metrics", "Metrics path")
 
@@ -101,6 +102,8 @@ func main() {
 		if err != nil {
 			log.Fatal(err)
 		}
+		kafkaState.FixedLengthProto = *FixedLength
+
 		sSFlow.Transport = kafkaState
 		sNFL.Transport = kafkaState
 		sNF.Transport = kafkaState
