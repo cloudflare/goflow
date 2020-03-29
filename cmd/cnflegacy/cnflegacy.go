@@ -20,7 +20,7 @@ var (
 
 	Addr  = flag.String("addr", "", "NetFlow v5 listening address")
 	Port  = flag.Int("port", 2055, "NetFlow v5 listening port")
-	Reuse = flag.Bool("reuse", false, "Enable so_reuseport for NetFlow v5 listening port")
+	Reuse = flag.Int("reuse", 0, "Enable so_reuseport for NetFlow v5 listening port")
 
 	Workers  = flag.Int("workers", 1, "Number of NetFlow v5 workers")
 	LogLevel = flag.String("loglevel", "info", "Log level")
@@ -84,7 +84,7 @@ func main() {
 	}
 	log.WithFields(log.Fields{
 		"Type": "NetFlowLegacy"}).
-		Infof("Listening on UDP %v:%v", *Addr, *Port)
+		Infof("Listening on UDP %s:%d (reuse: %d, workers: %d)", *Addr, *Port, *Reuse, *Workers)
 
 	err := s.FlowRoutine(*Workers, *Addr, *Port, *Reuse)
 	if err != nil {

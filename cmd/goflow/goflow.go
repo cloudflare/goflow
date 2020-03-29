@@ -22,17 +22,17 @@ var (
 	SFlowEnable = flag.Bool("sflow", true, "Enable sFlow")
 	SFlowAddr   = flag.String("sflow.addr", "", "sFlow listening address")
 	SFlowPort   = flag.Int("sflow.port", 6343, "sFlow listening port")
-	SFlowReuse  = flag.Bool("sflow.reuserport", false, "Enable so_reuseport for sFlow")
+	SFlowReuse  = flag.Int("sflow.reuse", 0, "Enable so_reuseport for sFlow")
 
 	NFLEnable = flag.Bool("nfl", true, "Enable NetFlow v5")
 	NFLAddr   = flag.String("nfl.addr", "", "NetFlow v5 listening address")
 	NFLPort   = flag.Int("nfl.port", 2056, "NetFlow v5 listening port")
-	NFLReuse  = flag.Bool("nfl.reuserport", false, "Enable so_reuseport for NetFlow v5")
+	NFLReuse  = flag.Int("nfl.reuse", 0, "Enable so_reuseport for NetFlow v5")
 
 	NFEnable = flag.Bool("nf", true, "Enable NetFlow/IPFIX")
 	NFAddr   = flag.String("nf.addr", "", "NetFlow/IPFIX listening address")
 	NFPort   = flag.Int("nf.port", 2055, "NetFlow/IPFIX listening port")
-	NFReuse  = flag.Bool("nf.reuserport", false, "Enable so_reuseport for NetFlow/IPFIX")
+	NFReuse  = flag.Int("nf.reuse", 0, "Enable so_reuseport for NetFlow/IPFIX")
 
 	Workers  = flag.Int("workers", 1, "Number of workers per collector")
 	LogLevel = flag.String("loglevel", "info", "Log level")
@@ -115,7 +115,7 @@ func main() {
 		go func() {
 			log.WithFields(log.Fields{
 				"Type": "sFlow"}).
-				Infof("Listening on UDP %v:%v", *SFlowAddr, *SFlowPort)
+				Infof("Listening on UDP %s:%d (reuse: %d, workers: %d)", *SFlowAddr, *SFlowPort, *SFlowReuse, *Workers)
 
 			err := sSFlow.FlowRoutine(*Workers, *SFlowAddr, *SFlowPort, *SFlowReuse)
 			if err != nil {
@@ -129,7 +129,7 @@ func main() {
 		go func() {
 			log.WithFields(log.Fields{
 				"Type": "NetFlow"}).
-				Infof("Listening on UDP %v:%v", *NFAddr, *NFPort)
+				Infof("Listening on UDP %s:%d (reuse: %d, workers: %d)", *NFAddr, *NFPort, *NFReuse, *Workers)
 
 			err := sNF.FlowRoutine(*Workers, *NFAddr, *NFPort, *NFReuse)
 			if err != nil {
@@ -143,7 +143,7 @@ func main() {
 		go func() {
 			log.WithFields(log.Fields{
 				"Type": "NetFlowLegacy"}).
-				Infof("Listening on UDP %v:%v", *NFLAddr, *NFLPort)
+				Infof("Listening on UDP %s:%d (reuse: %d, workers: %d)", *NFLAddr, *NFLPort, *NFLReuse, *Workers)
 
 			err := sNFL.FlowRoutine(*Workers, *NFLAddr, *NFLPort, *NFLReuse)
 			if err != nil {

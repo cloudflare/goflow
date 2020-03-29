@@ -20,7 +20,7 @@ var (
 
 	Addr  = flag.String("addr", "", "sFlow listening address")
 	Port  = flag.Int("port", 6343, "sFlow listening port")
-	Reuse = flag.Bool("reuse", false, "Enable so_reuseport for sFlow listening port")
+	Reuse = flag.Int("reuse", 0, "Enable so_reuseport for sFlow listening port")
 
 	Workers  = flag.Int("workers", 1, "Number of sFlow workers")
 	LogLevel = flag.String("loglevel", "info", "Log level")
@@ -84,7 +84,7 @@ func main() {
 	}
 	log.WithFields(log.Fields{
 		"Type": "sFlow"}).
-		Infof("Listening on UDP %v:%v", *Addr, *Port)
+		Infof("Listening on UDP %s:%d (reuse: %d, workers: %d)", *Addr, *Port, *Reuse, *Workers)
 
 	err := s.FlowRoutine(*Workers, *Addr, *Port, *Reuse)
 	if err != nil {
