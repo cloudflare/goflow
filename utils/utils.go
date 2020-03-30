@@ -189,17 +189,16 @@ func UDPRoutine(name string, decodeFunc decoder.DecoderFunc, workers int, addr s
 	}
 
 	routine := func(lane int, udpconn *net.UDPConn) {
-		payload := make([]byte, 9000)
 		localIP := addrUDP.IP.String()
 		if addrUDP.IP == nil {
 			localIP = ""
 		}
 
 		for {
-			size, pktAddr, _ := udpconn.ReadFromUDP(payload)
-			payloadCut := make([]byte, size)
-			copy(payloadCut, payload[0:size])
+			payload := make([]byte, 9000)
 
+			size, pktAddr, _ := udpconn.ReadFromUDP(payload)
+			payloadCut := payload[0:size]
 			baseMessage := BaseMessage{
 				Src:     pktAddr.IP,
 				Port:    pktAddr.Port,
