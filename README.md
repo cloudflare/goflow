@@ -183,6 +183,8 @@ You can find information on how they are populated from the original source:
 |SrcAS|Source AS number|src_as|From ExtendedGateway|SRC_AS (16)|bgpSourceAsNumber (16)|
 |DstAS|Destination AS number|dst_as|From ExtendedGateway|DST_AS (17)|bgpDestinationAsNumber (17)|
 |BgpNextHop|BGP Nexthop address| |From ExtendedGateway|BGP_IPV4_NEXT_HOP (18) BGP_IPV6_NEXT_HOP (63)|bgpNextHopIPv4Address (18) bgpNextHopIPv6Address (63)|
+|BgpCommunities|BGP Communities| |From ExtendedGateway| | |
+|ASPath|AS Path| |From ExtendedGateway| | |
 |NextHopAS|Nexthop AS number| |From ExtendedGateway| | |
 |HasEncap|Indicates if has GRE encapsulation||Included|||
 |xxxEncap fields|Same as field but inside GRE||Included|||

@@ -84,6 +84,8 @@ func TestExpandedSFlowDecode(t *testing.T) {
 	assert.Nil(t, err)
 
 	assert.Equal(t, []byte{0x05, 0x05, 0x05, 0x05}, flowMessage.BgpNextHop)
+	assert.Equal(t, []uint32{3936619448, 3936619708, 3936623548}, flowMessage.BgpCommunities)
+	assert.Equal(t, []uint32{456}, flowMessage.AsPath)
 	assert.Equal(t, []byte{0x09, 0x09, 0x09, 0x09}, flowMessage.NextHop)
 }
 
