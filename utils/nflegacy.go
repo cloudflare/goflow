@@ -84,6 +84,6 @@ func (s *StateNFLegacy) DecodeFlow(msg interface{}) error {
 	return nil
 }
 
-func (s *StateNFLegacy) FlowRoutine(workers int, addr string, port int, reuseport bool) error {
+func (s *StateNFLegacy) FlowRoutine(workers int, addr string, port int, reuseport int) error {
 	return UDPRoutine("NetFlowV5", s.DecodeFlow, workers, addr, port, reuseport, s.Logger)
 }

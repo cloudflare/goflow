@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"strconv"
+	"sync"
 	"time"
 
 	decoder "github.com/cloudflare/goflow/v3/decoders"
@@ -146,7 +147,7 @@ func FlowMessageToJSON(fmsg *flowmessage.FlowMessage) string {
 	return s
 }
 
-func UDPRoutine(name string, decodeFunc decoder.DecoderFunc, workers int, addr string, port int, sockReuse bool, logger Logger) error {
+func UDPRoutine(name string, decodeFunc decoder.DecoderFunc, workers int, addr string, port int, sockReuse int, logger Logger) error {
 	ecb := DefaultErrorCallback{
 		Logger: logger,
 	}
@@ -165,73 +166,91 @@ func UDPRoutine(name string, decodeFunc decoder.DecoderFunc, workers int, addr s
 		Port: port,
 	}
 
-	var udpconn *net.UDPConn
-	var err error
-
-	if sockReuse {
-		pconn, err := reuseport.ListenPacket("udp", addrUDP.String())
-		defer pconn.Close()
-		if err != nil {
-			return err
-		}
-		var ok bool
-		udpconn, ok = pconn.(*net.UDPConn)
-		if !ok {
-			return err
+	udpconnL := make([]*net.UDPConn, 0)
+	if sockReuse > 0 {
+		for i := 0; i < sockReuse; i++ {
+			pconn, err := reuseport.ListenPacket("udp", addrUDP.String())
+			defer pconn.Close()
+			if err != nil {
+				return err
+			}
+			udpconn, ok := pconn.(*net.UDPConn)
+			if !ok {
+				return err
+			}
+			udpconnL = append(udpconnL, udpconn)
 		}
 	} else {
-		udpconn, err = net.ListenUDP("udp", &addrUDP)
-		defer udpconn.Close()
+		udpconn, err := net.ListenUDP("udp", &addrUDP)
 		if err != nil {
 			return err
 		}
+		udpconnL = append(udpconnL, udpconn)
 	}
 
-	payload := make([]byte, 9000)
-
-	localIP := addrUDP.IP.String()
-	if addrUDP.IP == nil {
-		localIP = ""
-	}
-
-	for {
-		size, pktAddr, _ := udpconn.ReadFromUDP(payload)
-		payloadCut := make([]byte, size)
-		copy(payloadCut, payload[0:size])
-
-		baseMessage := BaseMessage{
-			Src:     pktAddr.IP,
-			Port:    pktAddr.Port,
-			Payload: payloadCut,
+	routine := func(lane int, udpconn *net.UDPConn) {
+		localIP := addrUDP.IP.String()
+		if addrUDP.IP == nil {
+			localIP = ""
 		}
-		processor.ProcessMessage(baseMessage)
 
-		MetricTrafficBytes.With(
-			prometheus.Labels{
-				"remote_ip":   pktAddr.IP.String(),
-				"remote_port": strconv.Itoa(pktAddr.Port),
-				"local_ip":    localIP,
-				"local_port":  strconv.Itoa(addrUDP.Port),
-				"type":        name,
-			}).
-			Add(float64(size))
-		MetricTrafficPackets.With(
-			prometheus.Labels{
-				"remote_ip":   pktAddr.IP.String(),
-				"remote_port": strconv.Itoa(pktAddr.Port),
-				"local_ip":    localIP,
-				"local_port":  strconv.Itoa(addrUDP.Port),
-				"type":        name,
-			}).
-			Inc()
-		MetricPacketSizeSum.With(
-			prometheus.Labels{
-				"remote_ip":   pktAddr.IP.String(),
-				"remote_port": strconv.Itoa(pktAddr.Port),
-				"local_ip":    localIP,
-				"local_port":  strconv.Itoa(addrUDP.Port),
-				"type":        name,
-			}).
-			Observe(float64(size))
+		for {
+			payload := make([]byte, 9000)
+
+			size, pktAddr, _ := udpconn.ReadFromUDP(payload)
+			payloadCut := payload[0:size]
+			baseMessage := BaseMessage{
+				Src:     pktAddr.IP,
+				Port:    pktAddr.Port,
+				Payload: payloadCut,
+			}
+			processor.ProcessMessage(baseMessage)
+
+			MetricTrafficBytes.With(
+				prometheus.Labels{
+					"remote_ip":   pktAddr.IP.String(),
+					"remote_port": strconv.Itoa(pktAddr.Port),
+					"local_ip":    localIP,
+					"local_port":  strconv.Itoa(addrUDP.Port),
+					"type":        name,
+					"lane":        strconv.Itoa(lane),
+				}).
+				Add(float64(size))
+			MetricTrafficPackets.With(
+				prometheus.Labels{
+					"remote_ip":   pktAddr.IP.String(),
+					"remote_port": strconv.Itoa(pktAddr.Port),
+					"local_ip":    localIP,
+					"local_port":  strconv.Itoa(addrUDP.Port),
+					"type":        name,
+					"lane":        strconv.Itoa(lane),
+				}).
+				Inc()
+			MetricPacketSizeSum.With(
+				prometheus.Labels{
+					"remote_ip":   pktAddr.IP.String(),
+					"remote_port": strconv.Itoa(pktAddr.Port),
+					"local_ip":    localIP,
+					"local_port":  strconv.Itoa(addrUDP.Port),
+					"type":        name,
+					"lane":        strconv.Itoa(lane),
+				}).
+				Observe(float64(size))
+		}
 	}
+
+	wg := &sync.WaitGroup{}
+	for i := range udpconnL {
+		wg.Add(1)
+		lane := i
+		udpconn := udpconnL[i]
+		go func(lane int, udpconn *net.UDPConn) {
+			defer wg.Done()
+			routine(lane, udpconn)
+			udpconn.Close()
+		}(lane, udpconn)
+	}
+
+	wg.Wait()
+	return nil
 }

@@ -68,7 +68,7 @@ func (s *StateNetFlow) DecodeFlow(msg interface{}) error {
 		samplerAddress = samplerAddress.To4()
 	}
 
-	s.templateslock.RLock()
+	s.templateslock.Lock()
 	templates, ok := s.templates[key]
 	if !ok {
 		templates = &TemplateSystem{
@@ -77,14 +77,14 @@ func (s *StateNetFlow) DecodeFlow(msg interface{}) error {
 		}
 		s.templates[key] = templates
 	}
-	s.templateslock.RUnlock()
-	s.samplinglock.RLock()
+	s.templateslock.Unlock()
+	s.samplinglock.Lock()
 	sampling, ok := s.sampling[key]
 	if !ok {
 		sampling = producer.CreateSamplingSystem()
 		s.sampling[key] = sampling
 	}
-	s.samplinglock.RUnlock()
+	s.samplinglock.Unlock()
 
 	ts := uint64(time.Now().UTC().Unix())
 	if pkt.SetTime {
@@ -349,7 +349,7 @@ func (s *StateNetFlow) InitTemplates() {
 	s.samplinglock = &sync.RWMutex{}
 }
 
-func (s *StateNetFlow) FlowRoutine(workers int, addr string, port int, reuseport bool) error {
+func (s *StateNetFlow) FlowRoutine(workers int, addr string, port int, reuseport int) error {
 	s.InitTemplates()
 	return UDPRoutine("NetFlow", s.DecodeFlow, workers, addr, port, reuseport, s.Logger)
 }
