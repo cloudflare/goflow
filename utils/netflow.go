@@ -70,21 +70,25 @@ func (s *StateNetFlow) DecodeFlow(msg interface{}) error {
 
 	s.templateslock.RLock()
 	templates, ok := s.templates[key]
+	s.templateslock.RUnlock()
 	if !ok {
 		templates = &TemplateSystem{
 			templates: netflow.CreateTemplateSystem(),
 			key:       key,
 		}
+		s.templateslock.Lock()
 		s.templates[key] = templates
+		s.templateslock.Unlock()
 	}
-	s.templateslock.RUnlock()
 	s.samplinglock.RLock()
 	sampling, ok := s.sampling[key]
+	s.samplinglock.RUnlock()
 	if !ok {
 		sampling = producer.CreateSamplingSystem()
+		s.samplinglock.Lock()
 		s.sampling[key] = sampling
+		s.samplinglock.Unlock()
 	}
-	s.samplinglock.RUnlock()
 
 	ts := uint64(time.Now().UTC().Unix())
 	if pkt.SetTime {
