@@ -88,6 +88,9 @@ message FlowMessage {
   uint32 SrcNet = 16;
   uint32 DstNet = 17;
 
+  // BGP information
+  bytes BgpNextHop = 100;
+
   // IP encapsulation information
   bool HasEncap = 43;
   bytes SrcAddrEncap = 44;
