@@ -32,7 +32,13 @@ func RegisterFlags() {
 
 
 func StartClickHouseConnection(log utils.Logger) (*ClickHouseState, error) {
-	fmt.Printf("clickhouse server on: %v:%v \n", ClickHouseAddr, ClickHousePort)
+	
+	if ClickHouseAddr == nil {
+        temp := "<nil>" // *string cannot be initialized
+        ClickHouseAddr = &temp // in one statement
+    }
+
+	fmt.Printf("clickhouse server on %v:%v\n", *ClickHouseAddr, *ClickHousePort)
 
 	state := ClickHouseState { FixedLengthProto: true }
 
@@ -41,9 +47,27 @@ func StartClickHouseConnection(log utils.Logger) (*ClickHouseState, error) {
 	
 }
 
+func ipv4BytesToUint32(b []byte) (uint32) {
+	return uint32(b[0]) << 24 + uint32(b[1]) << 16 + uint32(b[2]) << 8 + uint32(b[3])
+}
+
 func ClickHouseInsert(flowMessage *flowmessage.FlowMessage) {
-	// turn the fields into stuff
-	fmt.Printf("Inserting message %v", flowMessage)
+	// extract fields out of the flow message
+	
+
+	// assume and encode as IPv4 (even if its v6)
+	srcAddr := ipv4BytesToUint32(flowMessage.GetSrcAddr()[:4])
+	dstAddr := ipv4BytesToUint32(flowMessage.GetDstAddr()[:4])
+	
+
+	 fmt.Printf("src (%v) %v:%v\ndst (%v) %v:%v\n------\n",
+	 	srcAddr,
+	 	flowMessage.GetSrcAddr(), 
+		flowMessage.GetSrcPort(), 
+		dstAddr,
+		flowMessage.GetDstAddr(), 
+		flowMessage.GetDstPort())
+
 
 }
 
