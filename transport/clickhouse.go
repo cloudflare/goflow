@@ -18,11 +18,6 @@ import (
 )
 
 
-type SqlMutex struct {
-    stmt *sql.Stmt
-    sync.Mutex
-}
-
 
 var (
 	ClickHouseAddr *string
@@ -31,8 +26,6 @@ var (
 	ClickHousePassword *string
 	count uint64
 	tx *sql.Tx
-
-	txLock sync.Mutex
 
 	dbConn *sql.DB
 )
@@ -153,7 +146,7 @@ func ClickHouseInsert(fm *flowmessage.FlowMessage, stmt *sql.Stmt, wg *sync.Wait
 	
 
 	count += 1
-	fmt.Printf("stmt: %v\n", stmt)
+	// fmt.Printf("stmt: %v\n", stmt)
 	if _, err := stmt.Exec(
 		fm.GetTimeReceived(),
 		fm.GetTimeFlowStart(),
