@@ -77,6 +77,15 @@ func (s *DefaultJSONTransport) Publish(msgs []*flowmessage.FlowMessage) {
 	}
 }
 
+type DefaultSquidTransport struct {
+}
+
+func (s *DefaultSquidTransport) Publish(msgs []*flowmessage.FlowMessage) {
+	for _, msg := range msgs {
+		fmt.Printf("%v\n", FlowMessageToSquid(msg))
+	}
+}
+
 type DefaultErrorCallback struct {
 	Logger Logger
 }
@@ -242,6 +251,14 @@ func FlowMessageToString(fmsg *flowmessage.FlowMessage) string {
 		message[i] = m.Name + ":" + m.Value
 	}
 	return strings.Join(message, " ")
+}
+
+func FlowMessageToSquid(fmsg *flowmessage.FlowMessage) string {
+	srcmac := make([]byte, 8)
+	binary.BigEndian.PutUint64(srcmac, fmsg.SrcMac)
+	srcmac = srcmac[2:8]
+	message := fmt.Sprintf("%v %6v %v %v/- %v HEAD %v:%v %v FIRSTUP_PARENT/%v packet_netflow/%v", fmsg.TimeFlowStart, fmsg.TimeFlowEnd-fmsg.TimeFlowStart, net.IP(fmsg.DstAddr).String(), fmsg.Proto, fmsg.Bytes, net.IP(fmsg.SrcAddr).String(), fmsg.SrcPort, net.HardwareAddr(srcmac).String(), net.IP(fmsg.SamplerAddress), fmsg.DstPort)
+	return message
 }
 
 func FlowMessageToJSON(fmsg *flowmessage.FlowMessage) string {

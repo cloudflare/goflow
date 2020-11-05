@@ -63,6 +63,9 @@ func main() {
 	case "json":
 		log.SetFormatter(&log.JSONFormatter{})
 		defaultTransport = &utils.DefaultJSONTransport{}
+	case "squid":
+		log.SetFormatter(&log.JSONFormatter{})
+		defaultTransport = &utils.DefaultSquidTransport{}
 	}
 
 	runtime.GOMAXPROCS(runtime.NumCPU())
