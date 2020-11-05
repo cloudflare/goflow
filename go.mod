@@ -3,6 +3,7 @@ module github.com/cloudflare/goflow/v3
 go 1.12
 
 require (
+	github.com/ClickHouse/clickhouse-go v1.4.3
 	github.com/Shopify/sarama v1.22.0
 	github.com/golang/protobuf v1.3.1
 	github.com/libp2p/go-reuseport v0.0.1
