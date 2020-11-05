@@ -1,9 +1,16 @@
-# GoFlow
+# GoFlow ClickHouse
 
-This application is a NetFlow/IPFIX/sFlow collector in Go.
+This is a fork of cloudflare's GoFlow, is a NetFlow/IPFIX/sFlow collector in Go.
 
 It gathers network information (IP, interfaces, routers) from different flow protocols,
-serializes it in a protobuf format and sends the messages to Kafka using Sarama's library.
+serializes it in a protobuf format and ~~sends the messages to Kafka using Sarama's library~~ stores the indexed data into [ClickHouse](https://clickhouse.tech/),
+a FOSS, blazing-fast column based DB great for persistent storage of repetitive data.
+
+Just to put Java out of the loop :)
+
+If ClickHouse runs out RAM during search at any point, simply put `<max_server_memory_usage_to_ram_ratio>100</max_server_memory_usage_to_ram_ratio>` in it's config file.
+
+(You will need to setup ClickHouse separately)
 
 ## Why
 
@@ -60,7 +67,7 @@ Collection:
 
 Production:
 * Convert to protobuf
-* Sends to Kafka producer
+* ~~Sends to Kafka producer~~ Sends to ClickHouse DB
 * Prints to the console
 
 Monitoring:
@@ -78,17 +85,8 @@ Download the latest release and just run the following command:
 ./goflow -h
 ```
 
-Enable or disable a protocol using `-nf=false` or `-sflow=false`.
-Define the port and addresses of the protocols using `-nf.addr`, `-nf.port` for NetFlow and `-sflow.addr`, `-slow.port` for sFlow.
-
-Set the brokers or the Kafka brokers SRV record using: `-kafka.brokers 127.0.0.1:9092,[::1]:9092` or `-kafka.srv`.
-Disable Kafka sending `-kafka=false`.
-You can hash the protobuf by key when you send it to Kafka.
-
-You can collect NetFlow/IPFIX, NetFlow v5 and sFlow using the same collector
-or use the single-protocol collectors.
-
-You can define the number of workers per protocol using `-workers` .
+You can set parameters for ClickHouse using `-ch.username sampleUser`, `-ch.password`, `-ch.addr` and `-ch.port`. 
+The default settings for ClickHouse is 127.0.0.1:9000, default:default
 
 ## Docker
 
