@@ -38,7 +38,10 @@ var (
 	LogLevel = flag.String("loglevel", "info", "Log level")
 	LogFmt   = flag.String("logfmt", "normal", "Log formatter")
 
-	EnableKafka = flag.Bool("kafka", true, "Enable Kafka")
+	EnableKafka = flag.Bool("kafka", false, "Enable Kafka (NOT SUPPORTED IN THIS VERSION)")
+
+	EnableClickHouse = flag.Bool("ch", true, "Enable ClickHouse DB Integration")
+	
 	FixedLength = flag.Bool("proto.fixedlen", false, "Enable fixed length protobuf")
 	MetricsAddr = flag.String("metrics.addr", ":8080", "Metrics address")
 	MetricsPath = flag.String("metrics.path", "/metrics", "Metrics path")
@@ -97,6 +100,7 @@ func main() {
 
 	go httpServer(sNF)
 
+	// ht: insert new transport here, start it in a similar way as kafka
 	if *EnableKafka {
 		kafkaState, err := transport.StartKafkaProducerFromArgs(log.StandardLogger())
 		if err != nil {
@@ -107,6 +111,18 @@ func main() {
 		sSFlow.Transport = kafkaState
 		sNFL.Transport = kafkaState
 		sNF.Transport = kafkaState
+	}
+
+	if *EnableClickHouse {
+		clickHouseState, err := transport.StartClickHouseConnection(log.StandardLogger())
+		if err != nil {
+			log.Fatal(err)
+		}
+		clickHouseState.FixedLengthProto = *FixedLength
+
+		sSFlow.Transport = clickHouseState
+		sNFL.Transport = clickHouseState
+		sNF.Transport = clickHouseState
 	}
 
 	wg := &sync.WaitGroup{}

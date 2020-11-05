@@ -4,7 +4,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
-	"flag"
+	// "flag"
 	"fmt"
 	"os"
 	"reflect"
@@ -51,19 +51,19 @@ func ParseKafkaVersion(versionString string) (sarama.KafkaVersion, error) {
 	return sarama.ParseKafkaVersion(versionString)
 }
 
-func RegisterFlags() {
-	KafkaTLS = flag.Bool("kafka.tls", false, "Use TLS to connect to Kafka")
-	KafkaSASL = flag.Bool("kafka.sasl", false, "Use SASL/PLAIN data to connect to Kafka (TLS is recommended and the environment variables KAFKA_SASL_USER and KAFKA_SASL_PASS need to be set)")
-	KafkaTopic = flag.String("kafka.topic", "flow-messages", "Kafka topic to produce to")
-	KafkaSrv = flag.String("kafka.srv", "", "SRV record containing a list of Kafka brokers (or use kafka.out.brokers)")
-	KafkaBrk = flag.String("kafka.brokers", "127.0.0.1:9092,[::1]:9092", "Kafka brokers list separated by commas")
+// func RegisterFlags() {
+// 	KafkaTLS = flag.Bool("kafka.tls", false, "Use TLS to connect to Kafka")
+// 	KafkaSASL = flag.Bool("kafka.sasl", false, "Use SASL/PLAIN data to connect to Kafka (TLS is recommended and the environment variables KAFKA_SASL_USER and KAFKA_SASL_PASS need to be set)")
+// 	KafkaTopic = flag.String("kafka.topic", "flow-messages", "Kafka topic to produce to")
+// 	KafkaSrv = flag.String("kafka.srv", "", "SRV record containing a list of Kafka brokers (or use kafka.out.brokers)")
+// 	KafkaBrk = flag.String("kafka.brokers", "127.0.0.1:9092,[::1]:9092", "Kafka brokers list separated by commas")
 
-	KafkaLogErrors = flag.Bool("kafka.log.err", false, "Log Kafka errors")
+// 	KafkaLogErrors = flag.Bool("kafka.log.err", false, "Log Kafka errors")
 
-	KafkaHashing = flag.Bool("kafka.hashing", false, "Enable partitioning by hash instead of random")
-	KafkaKeying = flag.String("kafka.key", "SamplerAddress,DstAS", "Kafka list of fields to do hashing on (partition) separated by commas")
-	KafkaVersion = flag.String("kafka.version", "0.11.0.0", "Log message version (must be a version that parses per sarama.ParseKafkaVersion)")
-}
+// 	KafkaHashing = flag.Bool("kafka.hashing", false, "Enable partitioning by hash instead of random")
+// 	KafkaKeying = flag.String("kafka.key", "SamplerAddress,DstAS", "Kafka list of fields to do hashing on (partition) separated by commas")
+// 	KafkaVersion = flag.String("kafka.version", "0.11.0.0", "Log message version (must be a version that parses per sarama.ParseKafkaVersion)")
+// }
 
 func StartKafkaProducerFromArgs(log utils.Logger) (*KafkaState, error) {
 	kVersion, err := ParseKafkaVersion(*KafkaVersion)
