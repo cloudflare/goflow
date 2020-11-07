@@ -16,6 +16,12 @@ If ClickHouse runs out RAM during search at any point, simply put `<max_server_m
 
 To quickly get started, simply run `make build-goflow` and get the binary in `dist/` folder. 
 
+## Limitations of the ClickHouse fork
+
+You can see the ClickHouse SQL schema in the clickhouse transport module. This currently only records IPv4 traffic, with IPv6 addresses implicitly converted to IPv4 uint32's (I'm sorry!) - you can still see part of the IPv6 data, and you can check it in the Etype field. 
+
+MPLS data is also not recorded. However, it'd be very easy to change the code to fit those changes, simply modify the schema and the publish functions.
+
 ## Why
 
 The diversity of devices and the amount of network samples at Cloudflare required its own pipeline.
