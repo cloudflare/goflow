@@ -12,6 +12,10 @@ If ClickHouse runs out RAM during search at any point, simply put `<max_server_m
 
 (You will need to setup ClickHouse separately)
 
+## TLDR; / quick start
+
+To quickly get started, simply run `make build-goflow` and get the binary in `dist/` folder. 
+
 ## Why
 
 The diversity of devices and the amount of network samples at Cloudflare required its own pipeline.
