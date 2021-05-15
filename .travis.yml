@@ -4,21 +4,25 @@ jobs:
     - stage: test
       os: linux
       language: go
-      env:
-        GO111MODULE=on
+      go:
+      - 1.13.x
+      - 1.x
       script:
+        - go version
         - make test-race vet test
     # Compile
     - stage: compile
       os: linux
       language: go
+      go:
+      - 1.x
       env:
-        GO111MODULE=on
         BUILDINFOSDET=-travis
       before_install:
         - sudo apt-get update
         - sudo apt-get install -y rpm ruby ruby-dev
         - sudo gem install fpm
+        - go version
       script:
         - GOOS=linux make build-goflow-light
         - GOOS=linux make build-goflow
