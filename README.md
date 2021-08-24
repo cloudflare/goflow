@@ -156,8 +156,8 @@ You can find information on how they are populated from the original source:
 |DstAddr|Destination address (IP)|dstaddr (IPv4 only)|Included|Included|IPV4_DST_ADDR (12) IPV6_DST_ADDR (28)|destinationIPv4Address (12)destinationIPv6Address (28)|
 |Etype|Ethernet type (0x86dd for IPv6...)|IPv4|Included|Included|Included|
 |Proto|Protocol (UDP, TCP, ICMP...)|prot|Included|PROTOCOL (4)|protocolIdentifier (4)|
-|SrcPort|Source port (when UDP/TCP/SCTP)|srcport|Included|L4_DST_PORT (11)|destinationTransportPort (11)|
-|DstPort|Destination port (when UDP/TCP/SCTP)|dstport|Included|L4_SRC_PORT (7)|sourceTransportPort (7)|
+|SrcPort|Source port (when UDP/TCP/SCTP)|srcport|Included|L4_SRC_PORT (7)|sourceTransportPort (7)|
+|DstPort|Destination port (when UDP/TCP/SCTP)|dstport|Included|L4_DST_PORT (11)|destinationTransportPort (11)|
 |InIf|Input interface|input|Included|INPUT_SNMP (10)|ingressInterface (10)|
 |OutIf|Output interface|output|Included|OUTPUT_SNMP (14)|egressInterface (14)|
 |SrcMac|Source mac address| |Included|IN_SRC_MAC (56)|sourceMacAddress (56)|
