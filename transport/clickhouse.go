@@ -24,6 +24,7 @@ var (
 	ClickHousePort *int
 	ClickHouseUser *string
 	ClickHousePassword *string
+	ClickHouseDatabase *string
 	count uint64
 	tx *sql.Tx
 
@@ -42,6 +43,7 @@ func RegisterFlags() {
 	ClickHousePort   = flag.Int("ch.port", 9000, "ClickHouse DB port")
 	ClickHouseUser   = flag.String("ch.username", "default", "ClickHouse username")
 	ClickHousePassword   = flag.String("ch.password", "default", "ClickHouse password")
+	ClickHouseDatabase   = flag.String("ch.database", "default", "ClickHouse database")
 
 	// future: add batch size to batch insert
 }
@@ -58,8 +60,8 @@ func StartClickHouseConnection(logger utils.Logger) (*ClickHouseState, error) {
 
 	fmt.Printf("clickhouse server on %v:%v\n", *ClickHouseAddr, *ClickHousePort)
 
-	connStr := fmt.Sprintf("tcp://%s:%d?username=%s&password=%s&debug=true", 
-		 *ClickHouseAddr, *ClickHousePort, *ClickHouseUser, *ClickHousePassword,)
+	connStr := fmt.Sprintf("tcp://%s:%d?username=%s&password=%s&database=%s&debug=true",
+		 *ClickHouseAddr, *ClickHousePort, *ClickHouseUser, *ClickHousePassword, *ClickHouseDatabase)
 
 
 	// open DB dbConnion stuff
@@ -78,17 +80,17 @@ func StartClickHouseConnection(logger utils.Logger) (*ClickHouseState, error) {
 	}
 
 	// create DB schema, if not exist 
-	_, err = dbConn.Exec(`
-		CREATE DATABASE IF NOT EXISTS network
-	`)
+	_, err = dbConn.Exec(fmt.Sprintf`
+		CREATE DATABASE IF NOT EXISTS %s
+	`,  *ClickHouseDatabase))
 	if err != nil {
-		logger.Fatalf("couldn't create database 'network' (%v)", err)
+		logger.Fatalf("couldn't create database '%s' (%v)", *ClickHouseDatabase, err)
 	}
 
 	// use MergeTree engine to optimize storage
 	//https://clickhouse.tech/docs/en/engines/table-engines/mergetree-family/mergetree/
-	_, err = dbConn.Exec(`
-	CREATE TABLE IF NOT EXISTS network.nflow (
+	_, err = dbConn.Exec(fmt.Sprintf(`
+	CREATE TABLE IF NOT EXISTS %s.nflow (
     
 	    TimeReceived UInt32,
 	    TimeFlowStart UInt32,
@@ -112,7 +114,7 @@ func StartClickHouseConnection(logger utils.Logger) (*ClickHouseState, error) {
 	ORDER BY (TimeReceived, SrcAddr, SrcPort, DstAddr, DstPort)
 	PARTITION BY DstAddr
 	SAMPLE BY SrcAddr
-	`)
+	`,  *ClickHouseDatabase))
 
 	if err != nil {
 		logger.Fatalf("couldn't create table (%v)", err)
@@ -197,10 +199,10 @@ func (s ClickHouseState) Publish(msgs []*flowmessage.FlowMessage) {
 
 	tx, _  = dbConn.Begin()
 
-	stmt, err := tx.Prepare(`INSERT INTO network.nflow(TimeReceived, 
+	stmt, err := tx.Prepare(fmt.Sprintf(`INSERT INTO %s.nflow(TimeReceived, 
 		TimeFlowStart,TimeFlowEnd,Bytes,Etype,Packets,SrcAddr,DstAddr,SrcPort,
 		DstPort,Proto,SrcMac,DstMac,SrcVlan,DstVlan,VlanId,FlowType) 
-		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`)
+		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, *ClickHouseDatabase))
 
 	if (err != nil) {
 		fmt.Printf("Couldn't prepare statement (%v)\n", err)
