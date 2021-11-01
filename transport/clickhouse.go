@@ -80,7 +80,7 @@ func StartClickHouseConnection(logger utils.Logger) (*ClickHouseState, error) {
 	}
 
 	// create DB schema, if not exist 
-	_, err = dbConn.Exec(fmt.Sprintf`
+	_, err = dbConn.Exec(fmt.Sprintf(`
 		CREATE DATABASE IF NOT EXISTS %s
 	`,  *ClickHouseDatabase))
 	if err != nil {
