@@ -3,11 +3,15 @@ package producer
 import (
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"net"
 
 	"github.com/cloudflare/goflow/v3/decoders/sflow"
 	flowmessage "github.com/cloudflare/goflow/v3/pb"
+	log "github.com/sirupsen/logrus"
 )
+
+const ethernetHeaderSize = 14
 
 func GetSFlowFlowSamples(packet *sflow.Packet) []interface{} {
 	flowSamples := make([]interface{}, 0)
@@ -39,6 +43,9 @@ func ParseSampledHeaderConfig(flowMessage *flowmessage.FlowMessage, sampledHeade
 	data := (*sampledHeader).HeaderData
 	switch (*sampledHeader).Protocol {
 	case 1: // Ethernet
+		if len(data) < ethernetHeaderSize {
+			return fmt.Errorf("data shorter than ethernet header (%d<%d bytes)", len(data), ethernetHeaderSize)
+		}
 		var hasPPP bool
 		var pppAddressControl uint16
 		var hasMPLS bool
@@ -60,7 +67,7 @@ func ParseSampledHeaderConfig(flowMessage *flowmessage.FlowMessage, sampledHeade
 		dstIP := net.IP{}
 		srcIPEncap := net.IP{}
 		dstIPEncap := net.IP{}
-		offset := 14
+		offset := ethernetHeaderSize
 
 		var srcMac uint64
 		var dstMac uint64
@@ -316,7 +323,7 @@ func SearchSFlowSamples(samples []interface{}) []*flowmessage.FlowMessage {
 	return SearchSFlowSamples(samples)
 }
 
-func SearchSFlowSamplesConfig(samples []interface{}, config *SFlowProducerConfig) []*flowmessage.FlowMessage {
+func SearchSFlowSamplesConfig(samples []interface{}, config *SFlowProducerConfig, agent net.IP) []*flowmessage.FlowMessage {
 	flowMessageSet := make([]*flowmessage.FlowMessage, 0)
 
 	for _, flowSample := range samples {
@@ -346,7 +353,10 @@ func SearchSFlowSamplesConfig(samples []interface{}, config *SFlowProducerConfig
 			switch recordData := record.Data.(type) {
 			case sflow.SampledHeader:
 				flowMessage.Bytes = uint64(recordData.FrameLength)
-				ParseSampledHeaderConfig(flowMessage, &recordData, config)
+				err := ParseSampledHeaderConfig(flowMessage, &recordData, config)
+				if err != nil {
+					log.Errorf("ParseSampledHeaderConfig failed for %s: %v", agent, err)
+				}
 			case sflow.SampledIPv4:
 				ipSrc = recordData.Base.SrcIP
 				ipDst = recordData.Base.DstIP
@@ -407,7 +417,7 @@ func ProcessMessageSFlowConfig(msgDec interface{}, config *SFlowProducerConfig) 
 		agent = packet.AgentIP
 
 		flowSamples := GetSFlowFlowSamples(&packet)
-		flowMessageSet := SearchSFlowSamplesConfig(flowSamples, config)
+		flowMessageSet := SearchSFlowSamplesConfig(flowSamples, config, agent)
 		for _, fmsg := range flowMessageSet {
 			fmsg.SamplerAddress = agent
 			fmsg.SequenceNum = seqnum
