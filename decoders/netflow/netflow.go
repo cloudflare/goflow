@@ -100,7 +100,7 @@ func DecodeTemplateSet(payload *bytes.Buffer) ([]TemplateRecord, error) {
 			break
 		}
 
-		if int(templateRecord.FieldCount) < 0 {
+		if templateRecord.FieldCount == 0 {
 			return records, NewErrorDecodingNetFlow("Error decoding TemplateSet: zero count.")
 		}
 
