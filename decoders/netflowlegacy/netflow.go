@@ -7,6 +7,10 @@ import (
 	"github.com/cloudflare/goflow/v3/decoders/utils"
 )
 
+const MAX_UDP_PKT_SIZE = 65535
+const FLOW_SIZE = 48
+const MAX_FLOWS_PER_PACKET = MAX_UDP_PKT_SIZE / FLOW_SIZE
+
 type ErrorVersion struct {
 	version uint16
 }
@@ -39,8 +43,12 @@ func DecodeMessage(payload *bytes.Buffer) (interface{}, error) {
 			&(packet.SamplingInterval),
 		)
 
+		if packet.Count > MAX_FLOWS_PER_PACKET {
+			return nil, fmt.Errorf("Invalid amount of flows: %d", packet.Count)
+		}
+
 		packet.Records = make([]RecordsNetFlowV5, int(packet.Count))
-		for i := 0; i < int(packet.Count) && payload.Len() >= 48; i++ {
+		for i := 0; i < int(packet.Count) && payload.Len() >= FLOW_SIZE; i++ {
 			record := RecordsNetFlowV5{}
 			utils.BinaryDecoder(payload, &record)
 			packet.Records[i] = record
