@@ -277,10 +277,10 @@ func UDPRoutine(name string, decodeFunc decoder.DecoderFunc, workers int, addr s
 
 	if sockReuse {
 		pconn, err := reuseport.ListenPacket("udp", addrUDP.String())
-		defer pconn.Close()
 		if err != nil {
 			return err
 		}
+		defer pconn.Close()
 		var ok bool
 		udpconn, ok = pconn.(*net.UDPConn)
 		if !ok {
@@ -288,10 +288,10 @@ func UDPRoutine(name string, decodeFunc decoder.DecoderFunc, workers int, addr s
 		}
 	} else {
 		udpconn, err = net.ListenUDP("udp", &addrUDP)
-		defer udpconn.Close()
 		if err != nil {
 			return err
 		}
+		defer udpconn.Close()
 	}
 
 	payload := make([]byte, 9000)
