@@ -177,12 +177,15 @@ You can find information on how they are populated from the original source:
 |FragmentId|IP Fragment ID| |Included|IPV4_IDENT (54)|fragmentIdentification (54)|
 |FragmentOffset|IP Fragment Offset| |Included|FRAGMENT_OFFSET (88)|fragmentOffset (88) and fragmentFlags (197)|
 |BiFlowDirection|BiFlow Identification| | | |biflowDirection (239)|
-|SrcAS|Source AS number|src_as|From ExtendedGateway|SRC_AS (16)|bgpSourceAsNumber (16)|
-|DstAS|Destination AS number|dst_as|From ExtendedGateway|DST_AS (17)|bgpDestinationAsNumber (17)|
-|NextHop|Nexthop address|nexthop|From ExtendedGateway|IPV4_NEXT_HOP (15) BGP_IPV4_NEXT_HOP (18) IPV6_NEXT_HOP (62) BGP_IPV6_NEXT_HOP (63)|ipNextHopIPv4Address (15) bgpNextHopIPv4Address (18) ipNextHopIPv6Address (62) bgpNextHopIPv6Address (63)|
-|NextHopAS|Nexthop AS number| |From ExtendedGateway| | |
+|NextHop|Nexthop address|nexthop|From ExtendedRouter|IPV4_NEXT_HOP (15) IPV6_NEXT_HOP (62)|ipNextHopIPv4Address (15) ipNextHopIPv6Address (62)|
 |SrcNet|Source address mask|src_mask|From ExtendedRouter|SRC_MASK (9) IPV6_SRC_MASK (29)|sourceIPv4PrefixLength (9) sourceIPv6PrefixLength (29)|
 |DstNet|Destination address mask|dst_mask|From ExtendedRouter|DST_MASK (13) IPV6_DST_MASK (30)|destinationIPv4PrefixLength (13) destinationIPv6PrefixLength (30)|
+|SrcAS|Source AS number|src_as|From ExtendedGateway|SRC_AS (16)|bgpSourceAsNumber (16)|
+|DstAS|Destination AS number|dst_as|From ExtendedGateway|DST_AS (17)|bgpDestinationAsNumber (17)|
+|BgpNextHop|BGP Nexthop address| |From ExtendedGateway|BGP_IPV4_NEXT_HOP (18) BGP_IPV6_NEXT_HOP (63)|bgpNextHopIPv4Address (18) bgpNextHopIPv6Address (63)|
+|BgpCommunities|BGP Communities| |From ExtendedGateway| | |
+|ASPath|AS Path| |From ExtendedGateway| | |
+|NextHopAS|Nexthop AS number| |From ExtendedGateway| | |
 |HasEncap|Indicates if has GRE encapsulation||Included|||
 |xxxEncap fields|Same as field but inside GRE||Included|||
 |HasMPLS|Indicates the presence of MPLS header||Included|||
