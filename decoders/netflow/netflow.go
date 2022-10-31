@@ -2,8 +2,8 @@ package netflow
 
 import (
 	"bytes"
-	"encoding/binary"
 	"fmt"
+	"io"
 	"sync"
 
 	"github.com/cloudflare/goflow/v3/decoders/utils"
@@ -16,105 +16,142 @@ type NetFlowTemplateSystem interface {
 	AddTemplate(version uint16, obsDomainId uint32, template interface{})
 }
 
-func DecodeNFv9OptionsTemplateSet(payload *bytes.Buffer) ([]NFv9OptionsTemplateRecord, error) {
-	records := make([]NFv9OptionsTemplateRecord, 0)
-	var err error
+// DecodeNFv9OptionsTemplateSet decodes the options template data that describe
+// structure of IPFIX Options Data Records.
+func DecodeNFv9OptionsTemplateSet(payload *bytes.Buffer, ts *NFv9OptionsTemplateFlowSet) error {
+	ts.Records = ts.Records[:cap(ts.Records)]
+
+	i := 0
 	for payload.Len() >= 4 {
-		optsTemplateRecord := NFv9OptionsTemplateRecord{}
-		err = utils.BinaryDecoder(payload, &optsTemplateRecord.TemplateId, &optsTemplateRecord.ScopeLength, &optsTemplateRecord.OptionLength)
-		if err != nil {
-			break
+		if i >= len(ts.Records) {
+			ts.Records = append(ts.Records, NFv9OptionsTemplateRecord{})
 		}
 
-		sizeScope := int(optsTemplateRecord.ScopeLength) / 4
-		sizeOptions := int(optsTemplateRecord.OptionLength) / 4
+		record := &ts.Records[i]
+		if !record.ReadFrom(payload) {
+			return fmt.Errorf("decode nfv9 options templateSet: %v", io.ErrUnexpectedEOF)
+		}
+
+		sizeScope := int(record.ScopeLength) / 4
+		sizeOptions := int(record.OptionLength) / 4
 		if sizeScope < 0 || sizeOptions < 0 {
-			return records, NewErrorDecodingNetFlow("Error decoding OptionsTemplateSet: negative length.")
+			return NewErrorDecodingNetFlow("error decoding OptionsTemplateSet: negative length.")
 		}
 
-		fields := make([]Field, sizeScope)
-		for i := 0; i < sizeScope; i++ {
-			field := Field{}
-			err = utils.BinaryDecoder(payload, &field)
-			fields[i] = field
+		record.Scopes = record.Scopes[:cap(record.Scopes)]
+		if len(record.Scopes) < sizeScope {
+			record.Scopes = append(record.Scopes, make([]Field, sizeScope-len(record.Scopes))...)
 		}
-		optsTemplateRecord.Scopes = fields
 
-		fields = make([]Field, sizeOptions)
-		for i := 0; i < sizeOptions; i++ {
-			field := Field{}
-			err = utils.BinaryDecoder(payload, &field)
-			fields[i] = field
+		for j := 0; j < sizeScope; j++ {
+			if !record.Scopes[j].ReadFrom(payload) {
+				return fmt.Errorf("decode nfv9 options templateSet: %v", io.ErrUnexpectedEOF)
+			}
 		}
-		optsTemplateRecord.Options = fields
+		record.Scopes = record.Scopes[:sizeScope]
 
-		records = append(records, optsTemplateRecord)
+		record.Options = record.Options[:cap(record.Options)]
+		if len(record.Options) < sizeOptions {
+			record.Options = append(record.Options, make([]Field, sizeOptions-len(record.Options))...)
+		}
+
+		for k := 0; k < sizeOptions; k++ {
+			if !record.Options[k].ReadFrom(payload) {
+				return fmt.Errorf("decode nfv9 options templateSet: %v", io.ErrUnexpectedEOF)
+			}
+		}
+		record.Options = record.Options[:sizeOptions]
+
+		i++
 	}
-
-	return records, nil
+	ts.Records = ts.Records[:i]
+	return nil
 }
 
-func DecodeIPFIXOptionsTemplateSet(payload *bytes.Buffer) ([]IPFIXOptionsTemplateRecord, error) {
-	records := make([]IPFIXOptionsTemplateRecord, 0)
-	var err error
+// DecodeIPFIXOptionsTemplateSet decodes the options template data that describe
+// structure of NetFlow Options Data Records.
+func DecodeIPFIXOptionsTemplateSet(payload *bytes.Buffer, ts *IPFIXOptionsTemplateFlowSet) error {
+	ts.Records = ts.Records[:cap(ts.Records)]
+
+	i := 0
 	for payload.Len() >= 4 {
-		optsTemplateRecord := IPFIXOptionsTemplateRecord{}
-		err = utils.BinaryDecoder(payload, &optsTemplateRecord.TemplateId, &optsTemplateRecord.FieldCount, &optsTemplateRecord.ScopeFieldCount)
-		if err != nil {
-			break
+		if i >= len(ts.Records) {
+			ts.Records = append(ts.Records, IPFIXOptionsTemplateRecord{})
 		}
 
-		fields := make([]Field, int(optsTemplateRecord.ScopeFieldCount))
-		for i := 0; i < int(optsTemplateRecord.ScopeFieldCount); i++ {
-			field := Field{}
-			err = utils.BinaryDecoder(payload, &field)
-			fields[i] = field
+		optsTemplateRecord := &ts.Records[i]
+		if !optsTemplateRecord.ReadFrom(payload) {
+			return fmt.Errorf("decode ipfix options templateSet: %v", io.ErrUnexpectedEOF)
 		}
-		optsTemplateRecord.Scopes = fields
+
+		if len(optsTemplateRecord.Scopes) < int(optsTemplateRecord.ScopeFieldCount) {
+			optsTemplateRecord.Scopes = append(optsTemplateRecord.Scopes, make([]Field, int(optsTemplateRecord.ScopeFieldCount)-len(optsTemplateRecord.Scopes))...)
+		}
+
+		for j := 0; j < int(optsTemplateRecord.ScopeFieldCount); j++ {
+			if !optsTemplateRecord.Scopes[j].ReadFrom(payload) {
+				return fmt.Errorf("decode ipfix options templateSet: %v", io.ErrUnexpectedEOF)
+			}
+		}
+		optsTemplateRecord.Scopes = optsTemplateRecord.Scopes[:int(optsTemplateRecord.ScopeFieldCount)]
 
 		optionsSize := int(optsTemplateRecord.FieldCount) - int(optsTemplateRecord.ScopeFieldCount)
 		if optionsSize < 0 {
-			return records, NewErrorDecodingNetFlow("Error decoding OptionsTemplateSet: negative length.")
+			return NewErrorDecodingNetFlow("error decoding OptionsTemplateSet: negative length.")
 		}
-		fields = make([]Field, optionsSize)
-		for i := 0; i < optionsSize; i++ {
-			field := Field{}
-			err = utils.BinaryDecoder(payload, &field)
-			fields[i] = field
-		}
-		optsTemplateRecord.Options = fields
 
-		records = append(records, optsTemplateRecord)
+		if len(optsTemplateRecord.Options) < optionsSize {
+			optsTemplateRecord.Options = append(optsTemplateRecord.Options, make([]Field, optionsSize-len(optsTemplateRecord.Options))...)
+		}
+
+		for k := 0; k < optionsSize; k++ {
+			if !optsTemplateRecord.Options[k].ReadFrom(payload) {
+				return fmt.Errorf("decode ipfix options templateSet: %v", io.ErrUnexpectedEOF)
+			}
+		}
+		optsTemplateRecord.Options = optsTemplateRecord.Options[:optionsSize]
+
+		i++
 	}
-
-	return records, nil
+	ts.Records = ts.Records[:i]
+	return nil
 }
 
-func DecodeTemplateSet(payload *bytes.Buffer) ([]TemplateRecord, error) {
-	records := make([]TemplateRecord, 0)
-	var err error
+// DecodeTemplateSet decodes the template data that describe structure of Data Records (actual netflow/ipfix data).
+func DecodeTemplateSet(payload *bytes.Buffer, ts *TemplateFlowSet) error {
+	ts.Records = ts.Records[:cap(ts.Records)]
+
+	i := 0
 	for payload.Len() >= 4 {
-		templateRecord := TemplateRecord{}
-		err = utils.BinaryDecoder(payload, &templateRecord.TemplateId, &templateRecord.FieldCount)
-		if err != nil {
-			break
+		if i >= len(ts.Records) {
+			ts.Records = append(ts.Records, TemplateRecord{})
 		}
 
-		if templateRecord.FieldCount == 0 {
-			return records, NewErrorDecodingNetFlow("Error decoding TemplateSet: zero count.")
+		record := &ts.Records[i]
+		if !record.ReadFrom(payload) {
+			return fmt.Errorf("decode TemplateSet: %v", io.ErrUnexpectedEOF)
 		}
 
-		fields := make([]Field, int(templateRecord.FieldCount))
-		for i := 0; i < int(templateRecord.FieldCount); i++ {
-			field := Field{}
-			err = utils.BinaryDecoder(payload, &field)
-			fields[i] = field
+		if record.FieldCount == 0 {
+			return NewErrorDecodingNetFlow("error decoding TemplateSet: zero count.")
 		}
-		templateRecord.Fields = fields
-		records = append(records, templateRecord)
+
+		record.Fields = record.Fields[:cap(record.Fields)]
+
+		if len(record.Fields) < int(record.FieldCount) {
+			record.Fields = append(record.Fields, make([]Field, int(record.FieldCount)-len(record.Fields))...)
+		}
+
+		for j := 0; j < int(record.FieldCount); j++ {
+			if !record.Fields[j].ReadFrom(payload) {
+				return fmt.Errorf("decode TemplateSet: %v", io.ErrUnexpectedEOF)
+			}
+		}
+		record.Fields = record.Fields[:int(record.FieldCount)]
+		i++
 	}
-
-	return records, nil
+	ts.Records = ts.Records[:i]
+	return nil
 }
 
 func GetTemplateSize(template []Field) int {
@@ -125,22 +162,26 @@ func GetTemplateSize(template []Field) int {
 	return sum
 }
 
-func DecodeDataSetUsingFields(payload *bytes.Buffer, listFields []Field) []DataField {
-	for payload.Len() >= GetTemplateSize(listFields) {
-
-		dataFields := make([]DataField, len(listFields))
-
-		for i, templateField := range listFields {
-			value := payload.Next(int(templateField.Length))
-			nfvalue := DataField{
-				Type:  templateField.Type,
-				Value: value,
-			}
-			dataFields[i] = nfvalue
-		}
-		return dataFields
+// DecodeDataRecordFields decodes the fields(type and value) of DataRecord.
+func DecodeDataRecordFields(payload *bytes.Buffer, listFields []Field, record *[]DataField) error {
+	size := GetTemplateSize(listFields)
+	if payload.Len() < size {
+		return fmt.Errorf("decode dataset: there are fewer than %d bytes in the buffer", size)
 	}
-	return []DataField{}
+
+	*record = (*record)[:cap(*record)]
+	if len(*record) < len(listFields) {
+		*record = append(*record, make([]DataField, len(listFields)-len(*record))...)
+	}
+
+	for i, templateField := range listFields {
+		value := payload.Next(int(templateField.Length))
+
+		(*record)[i].Type = templateField.Type
+		(*record)[i].Value = value
+	}
+	*record = (*record)[:len(listFields)]
+	return nil
 }
 
 type ErrorTemplateNotFound struct {
@@ -160,7 +201,7 @@ func NewErrorTemplateNotFound(version uint16, obsDomainId uint32, templateId uin
 }
 
 func (e *ErrorTemplateNotFound) Error() string {
-	return fmt.Sprintf("No %v template %v found for and domain id %v", e.typeTemplate, e.templateId, e.obsDomainId)
+	return fmt.Sprintf("no %v template %v found for and domain id %v", e.typeTemplate, e.templateId, e.obsDomainId)
 }
 
 type ErrorVersion struct {
@@ -174,7 +215,7 @@ func NewErrorVersion(version uint16) *ErrorVersion {
 }
 
 func (e *ErrorVersion) Error() string {
-	return fmt.Sprintf("Unknown NetFlow version %v (only decodes v9 and v10/IPFIX)", e.version)
+	return fmt.Sprintf("unknown NetFlow version %v (only decodes v9 and v10/IPFIX)", e.version)
 }
 
 type ErrorFlowId struct {
@@ -188,7 +229,7 @@ func NewErrorFlowId(id uint16) *ErrorFlowId {
 }
 
 func (e *ErrorFlowId) Error() string {
-	return fmt.Sprintf("Unknown flow id %v (templates < 256, data >= 256)", e.id)
+	return fmt.Sprintf("unknown flow id %v (templates < 256, data >= 256)", e.id)
 }
 
 type ErrorDecodingNetFlow struct {
@@ -202,46 +243,64 @@ func NewErrorDecodingNetFlow(msg string) *ErrorDecodingNetFlow {
 }
 
 func (e *ErrorDecodingNetFlow) Error() string {
-	return fmt.Sprintf("Error decoding NetFlow: %v", e.msg)
+	return fmt.Sprintf("error decoding NetFlow: %v", e.msg)
 }
 
-func DecodeOptionsDataSet(payload *bytes.Buffer, listFieldsScopes, listFieldsOption []Field) ([]OptionsDataRecord, error) {
-	records := make([]OptionsDataRecord, 0)
+// DecodeOptionsDataSet decodes the options data record ("meta-data" about the netflow/ipfix process itself).
+func DecodeOptionsDataSet(payload *bytes.Buffer, fs *OptionsDataFlowSet, listFieldsScopes, listFieldsOption []Field) error {
+	fs.Records = fs.Records[:cap(fs.Records)]
 
 	listFieldsScopesSize := GetTemplateSize(listFieldsScopes)
 	listFieldsOptionSize := GetTemplateSize(listFieldsOption)
 
+	i := 0
 	for payload.Len() >= listFieldsScopesSize+listFieldsOptionSize {
-		payloadLim := bytes.NewBuffer(payload.Next(listFieldsScopesSize))
-		scopeValues := DecodeDataSetUsingFields(payloadLim, listFieldsScopes)
-		payloadLim = bytes.NewBuffer(payload.Next(listFieldsOptionSize))
-		optionValues := DecodeDataSetUsingFields(payloadLim, listFieldsOption)
-
-		record := OptionsDataRecord{
-			ScopesValues:  scopeValues,
-			OptionsValues: optionValues,
+		if i >= len(fs.Records) {
+			fs.Records = append(fs.Records, OptionsDataRecord{})
 		}
 
-		records = append(records, record)
+		record := &fs.Records[i]
+		payloadLim := bytes.NewBuffer(payload.Next(listFieldsScopesSize))
+
+		if err := DecodeDataRecordFields(payloadLim, listFieldsScopes, &record.ScopesValues); err != nil {
+			return fmt.Errorf("decode options dataSet: %v", err)
+		}
+
+		payloadLim = bytes.NewBuffer(payload.Next(listFieldsOptionSize))
+		if err := DecodeDataRecordFields(payloadLim, listFieldsOption, &record.OptionsValues); err != nil {
+			return fmt.Errorf("decode options dataSet: %v", err)
+		}
+
+		i++
 	}
-	return records, nil
+	fs.Records = fs.Records[:i]
+	return nil
 }
 
-func DecodeDataSet(payload *bytes.Buffer, listFields []Field) ([]DataRecord, error) {
-	records := make([]DataRecord, 0)
+// DecodeDataSet decodes the Data Records (actual netflow/ipfix data).
+func DecodeDataSet(payload *bytes.Buffer, listFields []Field, flowSet *DataFlowSet) error {
+	flowSet.Records = flowSet.Records[:cap(flowSet.Records)]
 
 	listFieldsSize := GetTemplateSize(listFields)
+
+	i := 0
 	for payload.Len() >= listFieldsSize {
 		payloadLim := bytes.NewBuffer(payload.Next(listFieldsSize))
-		values := DecodeDataSetUsingFields(payloadLim, listFields)
 
-		record := DataRecord{
-			Values: values,
+		if i >= len(flowSet.Records) {
+			flowSet.Records = append(flowSet.Records, DataRecord{})
 		}
 
-		records = append(records, record)
+		datafields := &flowSet.Records[i].Values
+		if err := DecodeDataRecordFields(payloadLim, listFields, datafields); err != nil {
+			return err
+		}
+
+		i++
 	}
-	return records, nil
+
+	flowSet.Records = flowSet.Records[:i]
+	return nil
 }
 
 func (ts *BasicTemplateSystem) GetTemplates() map[uint16]map[uint32]map[uint16]interface{} {
@@ -254,11 +313,11 @@ func (ts *BasicTemplateSystem) GetTemplates() map[uint16]map[uint32]map[uint16]i
 func (ts *BasicTemplateSystem) AddTemplate(version uint16, obsDomainId uint32, template interface{}) {
 	ts.templateslock.Lock()
 	_, exists := ts.templates[version]
-	if exists != true {
+	if !exists {
 		ts.templates[version] = make(map[uint32]map[uint16]interface{})
 	}
 	_, exists = ts.templates[version][obsDomainId]
-	if exists != true {
+	if !exists {
 		ts.templates[version][obsDomainId] = make(map[uint16]interface{})
 	}
 	var templateId uint16
@@ -308,179 +367,275 @@ func CreateTemplateSystem() *BasicTemplateSystem {
 	return ts
 }
 
-func DecodeMessage(payload *bytes.Buffer, templates NetFlowTemplateSystem) (interface{}, error) {
-	var size uint16
-	packetNFv9 := NFv9Packet{}
-	packetIPFIX := IPFIXPacket{}
-	var returnItem interface{}
+// FlowMessage processes the message(parses, and stores network information).
+type FlowMessage struct {
+	// Version is version of netflow/ipfix records exported in this packet.
+	Version     uint16
+	PacketNFv9  NFv9Packet
+	PacketIPFIX IPFIXPacket
 
-	var version uint16
-	var obsDomainId uint32
-	binary.Read(payload, binary.BigEndian, &version)
+	fsheader FlowSetHeader
+	buf      *bytes.Buffer
+}
 
-	if version == 9 {
-		utils.BinaryDecoder(payload, &packetNFv9.Count, &packetNFv9.SystemUptime, &packetNFv9.UnixSeconds, &packetNFv9.SequenceNumber, &packetNFv9.SourceId)
-		size = packetNFv9.Count
-		packetNFv9.Version = version
-		returnItem = *(&packetNFv9)
-		obsDomainId = packetNFv9.SourceId
-	} else if version == 10 {
-		utils.BinaryDecoder(payload, &packetIPFIX.Length, &packetIPFIX.ExportTime, &packetIPFIX.SequenceNumber, &packetIPFIX.ObservationDomainId)
-		size = packetIPFIX.Length
-		packetIPFIX.Version = version
-		returnItem = *(&packetIPFIX)
-		obsDomainId = packetIPFIX.ObservationDomainId
-	} else {
-		return nil, NewErrorVersion(version)
+// Decode decodes and collects the message in netflow/ipfix protocol format.
+func (f *FlowMessage) Decode(payload *bytes.Buffer, templates NetFlowTemplateSystem) error {
+	if f.buf == nil {
+		f.buf = &bytes.Buffer{}
 	}
 
-	for i := 0; ((i < int(size) && version == 9) || version == 10) && payload.Len() > 0; i++ {
-		fsheader := FlowSetHeader{}
-		utils.BinaryDecoder(payload, &fsheader)
+	if !utils.ReadUint16FromBuffer(payload, &f.Version) {
+		return io.ErrUnexpectedEOF
+	}
 
-		nextrelpos := int(fsheader.Length) - binary.Size(fsheader)
+	if f.Version == netflow {
+		if !f.PacketNFv9.ReadFrom(payload) {
+			return fmt.Errorf("decode packet version: %v", io.ErrUnexpectedEOF)
+		}
+		f.PacketNFv9.Version = f.Version
+
+		if err := f.DecodeNFv9Packet(payload, templates); err != nil {
+			return err
+		}
+	} else if f.Version == ipfix {
+		if !f.PacketIPFIX.ReadFrom(payload) {
+			return fmt.Errorf("decode packet header: %v", io.ErrUnexpectedEOF)
+		}
+		f.PacketIPFIX.Version = f.Version
+
+		if err := f.DecodeIPFIXPacket(payload, templates); err != nil {
+			return err
+		}
+	} else {
+		return NewErrorVersion(f.Version)
+	}
+	return nil
+}
+
+// DecodeNFv9Packet decodes and collects the message in netflow protocol format.
+func (f *FlowMessage) DecodeNFv9Packet(payload *bytes.Buffer, templates NetFlowTemplateSystem) error {
+	var (
+		nfDataFSidx, nfTemplateFSidx, nfOptsTemplateFSidx, nfOptsDataFSidx int
+	)
+
+	for i := 0; i < int(f.PacketNFv9.Count) && payload.Len() > 0; i++ {
+		f.fsheader.ReadFrom(payload)
+
+		nextrelpos := int(f.fsheader.Length) - flowSetHeaderSize
 		if nextrelpos < 0 {
-			return returnItem, NewErrorDecodingNetFlow("Error decoding packet: non-terminated stream.")
+			return NewErrorDecodingNetFlow("error decoding packet: non-terminated stream.")
 		}
 
-		var flowSet interface{}
+		if f.fsheader.Id == nfv9TemplateFlowSetID {
+			f.buf.Reset()
+			f.buf.Write(payload.Next(nextrelpos))
 
-		if fsheader.Id == 0 && version == 9 {
-			templateReader := bytes.NewBuffer(payload.Next(nextrelpos))
-			records, err := DecodeTemplateSet(templateReader)
-			if err != nil {
-				return returnItem, err
-			}
-			templatefs := TemplateFlowSet{
-				FlowSetHeader: fsheader,
-				Records:       records,
+			f.PacketNFv9.TemplateFS = f.PacketNFv9.TemplateFS[:cap(f.PacketNFv9.TemplateFS)]
+			if nfTemplateFSidx >= len(f.PacketNFv9.TemplateFS) {
+				f.PacketNFv9.TemplateFS = append(f.PacketNFv9.TemplateFS, TemplateFlowSet{})
 			}
 
-			flowSet = templatefs
-
-			if templates != nil {
-				for _, record := range records {
-					templates.AddTemplate(version, obsDomainId, record)
-				}
+			ts := &f.PacketNFv9.TemplateFS[nfTemplateFSidx]
+			if err := DecodeTemplateSet(f.buf, ts); err != nil {
+				return fmt.Errorf("decode netflow packet: %v", err)
 			}
 
-		} else if fsheader.Id == 1 && version == 9 {
-			templateReader := bytes.NewBuffer(payload.Next(nextrelpos))
-			records, err := DecodeNFv9OptionsTemplateSet(templateReader)
-			if err != nil {
-				return returnItem, err
-			}
-			optsTemplatefs := NFv9OptionsTemplateFlowSet{
-				FlowSetHeader: fsheader,
-				Records:       records,
-			}
-			flowSet = optsTemplatefs
+			ts.FlowSetHeader = f.fsheader
 
 			if templates != nil {
-				for _, record := range records {
-					templates.AddTemplate(version, obsDomainId, record)
+				for _, record := range ts.Records {
+					templates.AddTemplate(f.Version, f.PacketNFv9.SourceId, record)
 				}
 			}
+			nfTemplateFSidx++
+		} else if f.fsheader.Id == nfv9OptionsTemplateFlowSetID {
+			f.buf.Reset()
+			f.buf.Write(payload.Next(nextrelpos))
 
-		} else if fsheader.Id == 2 && version == 10 {
-			templateReader := bytes.NewBuffer(payload.Next(nextrelpos))
-			records, err := DecodeTemplateSet(templateReader)
-			if err != nil {
-				return returnItem, err
+			f.PacketNFv9.NFv9OptionsTemplateFS = f.PacketNFv9.NFv9OptionsTemplateFS[:cap(f.PacketNFv9.NFv9OptionsTemplateFS)]
+			if nfOptsTemplateFSidx >= len(f.PacketNFv9.NFv9OptionsTemplateFS) {
+				f.PacketNFv9.NFv9OptionsTemplateFS = append(f.PacketNFv9.NFv9OptionsTemplateFS, NFv9OptionsTemplateFlowSet{})
 			}
-			templatefs := TemplateFlowSet{
-				FlowSetHeader: fsheader,
-				Records:       records,
+
+			ts := &f.PacketNFv9.NFv9OptionsTemplateFS[nfOptsTemplateFSidx]
+
+			ts.FlowSetHeader = f.fsheader
+			if err := DecodeNFv9OptionsTemplateSet(f.buf, ts); err != nil {
+				return fmt.Errorf("decode ipfix packet: %v", err)
 			}
-			flowSet = templatefs
 
 			if templates != nil {
-				for _, record := range records {
-					templates.AddTemplate(version, obsDomainId, record)
+				for _, record := range ts.Records {
+					templates.AddTemplate(f.Version, f.PacketNFv9.SourceId, record)
 				}
 			}
-
-		} else if fsheader.Id == 3 && version == 10 {
-			templateReader := bytes.NewBuffer(payload.Next(nextrelpos))
-			records, err := DecodeIPFIXOptionsTemplateSet(templateReader)
-			if err != nil {
-				return returnItem, err
-			}
-			optsTemplatefs := IPFIXOptionsTemplateFlowSet{
-				FlowSetHeader: fsheader,
-				Records:       records,
-			}
-			flowSet = optsTemplatefs
-
-			if templates != nil {
-				for _, record := range records {
-					templates.AddTemplate(version, obsDomainId, record)
-				}
-			}
-
-		} else if fsheader.Id >= 256 {
-			dataReader := bytes.NewBuffer(payload.Next(nextrelpos))
+			nfOptsTemplateFSidx++
+		} else if f.fsheader.Id >= dataTemplateFlowSetID {
+			f.buf.Reset()
+			f.buf.Write(payload.Next(nextrelpos))
 
 			if templates == nil {
 				continue
 			}
 
-			template, err := templates.GetTemplate(version, obsDomainId, fsheader.Id)
+			template, err := templates.GetTemplate(f.Version, f.PacketNFv9.SourceId, f.fsheader.Id)
+			if err != nil {
+				return err
+			}
 
-			if err == nil {
-				switch templatec := template.(type) {
-				case TemplateRecord:
-					records, err := DecodeDataSet(dataReader, templatec.Fields)
-					if err != nil {
-						return returnItem, err
-					}
-					datafs := DataFlowSet{
-						FlowSetHeader: fsheader,
-						Records:       records,
-					}
-					flowSet = datafs
-				case IPFIXOptionsTemplateRecord:
-					records, err := DecodeOptionsDataSet(dataReader, templatec.Scopes, templatec.Options)
-					if err != nil {
-						return returnItem, err
-					}
+			switch templatec := template.(type) {
+			case TemplateRecord:
+				f.PacketNFv9.DataFS = f.PacketNFv9.DataFS[:cap(f.PacketNFv9.DataFS)]
 
-					datafs := OptionsDataFlowSet{
-						FlowSetHeader: fsheader,
-						Records:       records,
-					}
-					flowSet = datafs
-				case NFv9OptionsTemplateRecord:
-					records, err := DecodeOptionsDataSet(dataReader, templatec.Scopes, templatec.Options)
-					if err != nil {
-						return returnItem, err
-					}
-
-					datafs := OptionsDataFlowSet{
-						FlowSetHeader: fsheader,
-						Records:       records,
-					}
-					flowSet = datafs
+				if nfDataFSidx >= len(f.PacketNFv9.DataFS) {
+					f.PacketNFv9.DataFS = append(f.PacketNFv9.DataFS, DataFlowSet{})
 				}
-			} else {
-				return returnItem, err
+
+				f.PacketNFv9.DataFS[nfDataFSidx].FlowSetHeader = f.fsheader
+				if err := DecodeDataSet(f.buf, templatec.Fields, &f.PacketNFv9.DataFS[nfDataFSidx]); err != nil {
+					return err
+				}
+				nfDataFSidx++
+			case NFv9OptionsTemplateRecord:
+				f.PacketNFv9.OptionsDataFS = f.PacketNFv9.OptionsDataFS[:cap(f.PacketNFv9.OptionsDataFS)]
+
+				if nfOptsDataFSidx >= len(f.PacketNFv9.OptionsDataFS) {
+					f.PacketNFv9.OptionsDataFS = append(f.PacketNFv9.OptionsDataFS, OptionsDataFlowSet{})
+				}
+
+				optFS := &f.PacketNFv9.OptionsDataFS[nfOptsDataFSidx]
+
+				optFS.FlowSetHeader = f.fsheader
+				if err := DecodeOptionsDataSet(f.buf, optFS, templatec.Scopes, templatec.Options); err != nil {
+					return err
+				}
+				nfOptsDataFSidx++
+			default:
+				return fmt.Errorf("unknown record type: %T", templatec)
 			}
 		} else {
-			return returnItem, NewErrorFlowId(fsheader.Id)
-		}
-
-		if version == 9 && flowSet != nil {
-			packetNFv9.FlowSets = append(packetNFv9.FlowSets, flowSet)
-		} else if version == 10 && flowSet != nil {
-			packetIPFIX.FlowSets = append(packetIPFIX.FlowSets, flowSet)
+			return NewErrorFlowId(f.fsheader.Id)
 		}
 	}
 
-	if version == 9 {
-		return packetNFv9, nil
-	} else if version == 10 {
-		return packetIPFIX, nil
-	} else {
-		return returnItem, NewErrorVersion(version)
+	f.PacketNFv9.DataFS = f.PacketNFv9.DataFS[:nfDataFSidx]
+	f.PacketNFv9.TemplateFS = f.PacketNFv9.TemplateFS[:nfTemplateFSidx]
+	f.PacketNFv9.NFv9OptionsTemplateFS = f.PacketNFv9.NFv9OptionsTemplateFS[:nfOptsTemplateFSidx]
+	f.PacketNFv9.OptionsDataFS = f.PacketNFv9.OptionsDataFS[:nfOptsDataFSidx]
+
+	return nil
+}
+
+// DecodeIPFIXPacket decodes and collects the message in ipfix protocol format.
+func (f *FlowMessage) DecodeIPFIXPacket(payload *bytes.Buffer, templates NetFlowTemplateSystem) error {
+	var (
+		ipxDataFSidx, ipxTemplateFSidx, ipxOptsTemplateFSidx, ipxOptsDataFSidx int
+	)
+
+	for i := 0; i < int(f.PacketIPFIX.Length) && payload.Len() > 0; i++ {
+		f.fsheader.ReadFrom(payload)
+
+		nextrelpos := int(f.fsheader.Length) - flowSetHeaderSize
+		if nextrelpos < 0 {
+			return NewErrorDecodingNetFlow("error decoding packet: non-terminated stream.")
+		}
+
+		if f.fsheader.Id == ipfixTemplateFlowSetID {
+			f.buf.Reset()
+			f.buf.Write(payload.Next(nextrelpos))
+
+			f.PacketIPFIX.TemplateFS = f.PacketIPFIX.TemplateFS[:cap(f.PacketIPFIX.TemplateFS)]
+			if ipxTemplateFSidx >= len(f.PacketIPFIX.TemplateFS) {
+				f.PacketIPFIX.TemplateFS = append(f.PacketIPFIX.TemplateFS, TemplateFlowSet{})
+			}
+
+			ts := &f.PacketIPFIX.TemplateFS[ipxTemplateFSidx]
+			if err := DecodeTemplateSet(f.buf, ts); err != nil {
+				return err
+			}
+
+			ts.FlowSetHeader = f.fsheader
+			if templates != nil {
+				for _, record := range ts.Records {
+					templates.AddTemplate(f.Version, f.PacketIPFIX.ObservationDomainId, record)
+				}
+			}
+			ipxTemplateFSidx++
+		} else if f.fsheader.Id == ipfixOptionsTemplateFlowSetID {
+			f.buf.Reset()
+			f.buf.Write(payload.Next(nextrelpos))
+
+			f.PacketIPFIX.IPFIXOptionsTemplateFS = f.PacketIPFIX.IPFIXOptionsTemplateFS[:cap(f.PacketIPFIX.IPFIXOptionsTemplateFS)]
+
+			if ipxOptsTemplateFSidx >= len(f.PacketIPFIX.IPFIXOptionsTemplateFS) {
+				f.PacketIPFIX.IPFIXOptionsTemplateFS = append(f.PacketIPFIX.IPFIXOptionsTemplateFS, IPFIXOptionsTemplateFlowSet{})
+			}
+
+			opt := &f.PacketIPFIX.IPFIXOptionsTemplateFS[ipxOptsTemplateFSidx]
+
+			opt.FlowSetHeader = f.fsheader
+			if err := DecodeIPFIXOptionsTemplateSet(f.buf, opt); err != nil {
+				return err
+			}
+
+			if templates != nil {
+				for _, record := range opt.Records {
+					templates.AddTemplate(f.Version, f.PacketIPFIX.ObservationDomainId, record)
+				}
+			}
+			ipxOptsTemplateFSidx++
+		} else if f.fsheader.Id >= dataTemplateFlowSetID {
+			f.buf.Reset()
+			f.buf.Write(payload.Next(nextrelpos))
+
+			if templates == nil {
+				continue
+			}
+
+			template, err := templates.GetTemplate(f.Version, f.PacketIPFIX.ObservationDomainId, f.fsheader.Id)
+			if err != nil {
+				return err
+			}
+
+			switch templatec := template.(type) {
+			case TemplateRecord:
+				f.PacketIPFIX.DataFS = f.PacketIPFIX.DataFS[:cap(f.PacketIPFIX.DataFS)]
+
+				if ipxDataFSidx >= len(f.PacketIPFIX.DataFS) {
+					f.PacketIPFIX.DataFS = append(f.PacketIPFIX.DataFS, DataFlowSet{})
+				}
+
+				f.PacketIPFIX.DataFS[ipxDataFSidx].FlowSetHeader = f.fsheader
+				if err := DecodeDataSet(f.buf, templatec.Fields, &f.PacketIPFIX.DataFS[ipxDataFSidx]); err != nil {
+					return err
+				}
+				ipxDataFSidx++
+			case IPFIXOptionsTemplateRecord:
+				f.PacketIPFIX.OptionsDataFS = f.PacketIPFIX.OptionsDataFS[:cap(f.PacketIPFIX.OptionsDataFS)]
+
+				if ipxOptsDataFSidx >= len(f.PacketIPFIX.OptionsDataFS) {
+					f.PacketIPFIX.OptionsDataFS = append(f.PacketIPFIX.OptionsDataFS, OptionsDataFlowSet{})
+				}
+
+				optFS := &f.PacketIPFIX.OptionsDataFS[ipxOptsDataFSidx]
+
+				optFS.FlowSetHeader = f.fsheader
+				if err := DecodeOptionsDataSet(f.buf, optFS, templatec.Scopes, templatec.Options); err != nil {
+					return err
+				}
+				ipxOptsDataFSidx++
+			default:
+				return fmt.Errorf("unknown record type: %T", templatec)
+			}
+		} else {
+			return NewErrorFlowId(f.fsheader.Id)
+		}
 	}
+
+	f.PacketIPFIX.DataFS = f.PacketIPFIX.DataFS[:ipxDataFSidx]
+	f.PacketIPFIX.TemplateFS = f.PacketIPFIX.TemplateFS[:ipxTemplateFSidx]
+	f.PacketIPFIX.IPFIXOptionsTemplateFS = f.PacketIPFIX.IPFIXOptionsTemplateFS[:ipxOptsTemplateFSidx]
+	f.PacketIPFIX.OptionsDataFS = f.PacketIPFIX.OptionsDataFS[:ipxOptsDataFSidx]
+
+	return nil
 }
