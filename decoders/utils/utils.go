@@ -23,12 +23,8 @@ func BinaryDecoder(payload io.Reader, dests ...interface{}) error {
 func ReadUint16FromBuffer(b *bytes.Buffer, x *uint16) bool {
 	var buf [2]byte
 
-	for i := range buf {
-		bt, err := b.ReadByte()
-		if err != nil {
-			return false
-		}
-		buf[i] = bt
+	if n, _ := b.Read(buf[:]); n < len(buf) {
+		return false
 	}
 
 	*x = binary.BigEndian.Uint16(buf[:])
@@ -42,12 +38,8 @@ func ReadUint16FromBuffer(b *bytes.Buffer, x *uint16) bool {
 func ReadUint32FromBuffer(b *bytes.Buffer, x *uint32) bool {
 	var buf [4]byte
 
-	for i := range buf {
-		bt, err := b.ReadByte()
-		if err != nil {
-			return false
-		}
-		buf[i] = bt
+	if n, _ := b.Read(buf[:]); n < len(buf) {
+		return false
 	}
 
 	*x = binary.BigEndian.Uint32(buf[:])
