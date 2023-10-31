@@ -2,6 +2,7 @@ package netflow
 
 import (
 	"bytes"
+	"encoding/binary"
 	"fmt"
 	"io"
 	"sync"
@@ -164,24 +165,59 @@ func GetTemplateSize(template []Field) int {
 
 // DecodeDataRecordFields decodes the fields(type and value) of DataRecord.
 func DecodeDataRecordFields(payload *bytes.Buffer, listFields []Field, record *[]DataField) error {
-	size := GetTemplateSize(listFields)
-	if payload.Len() < size {
-		return fmt.Errorf("decode dataset: there are fewer than %d bytes in the buffer", size)
-	}
-
 	*record = (*record)[:cap(*record)]
 	if len(*record) < len(listFields) {
 		*record = append(*record, make([]DataField, len(listFields)-len(*record))...)
 	}
 
+	var ok bool
 	for i, templateField := range listFields {
-		value := payload.Next(int(templateField.Length))
+
+		l := int(templateField.Length)
+
+		if templateField.IsVariableLength() {
+			if l, ok = getVariableLength(payload); !ok {
+				return fmt.Errorf("decode DataRecordFields: invalid variable-length: %d", l)
+			}
+		}
+
+		// XXX: Retaining a slice returned by Next() may be unsafe according to
+		// method's documentation as it may be invalidated by future Read call.
+		value := payload.Next(l)
+		if len(value) < l {
+			return fmt.Errorf("decode dataset: there are fewer than %d bytes in the buffer", l)
+		}
 
 		(*record)[i].Type = templateField.Type
 		(*record)[i].Value = value
 	}
 	*record = (*record)[:len(listFields)]
 	return nil
+}
+
+func getVariableLength(payload *bytes.Buffer) (int, bool) {
+	b, err := payload.ReadByte()
+	if err != nil {
+		return 0, false
+	}
+
+	// RFC 7011 Sec. 7.Variable-Length Information Element.
+	if b != 0xff {
+		return int(b), true
+	}
+
+	// RFC 7011 Sec. 7.Variable-Length Information Element:
+	// The length may also be encoded into 3 octets before the Information
+	// Element, allowing the length of the Information Element to be greater
+	// than or equal to 255 octets. In this case, the first octet of the Length
+	// field MUST be 255, and the length is carried in the second and third
+	// octets.
+	length := payload.Next(2)
+	if len(length) < 2 {
+		return 0, false
+	}
+
+	return int(binary.BigEndian.Uint16(length)), true
 }
 
 type ErrorTemplateNotFound struct {
@@ -281,24 +317,19 @@ func DecodeOptionsDataSet(payload *bytes.Buffer, fs *OptionsDataFlowSet, listFie
 func DecodeDataSet(payload *bytes.Buffer, listFields []Field, flowSet *DataFlowSet) error {
 	flowSet.Records = flowSet.Records[:cap(flowSet.Records)]
 
-	listFieldsSize := GetTemplateSize(listFields)
-
 	i := 0
-	for payload.Len() >= listFieldsSize {
-		payloadLim := bytes.NewBuffer(payload.Next(listFieldsSize))
-
+	for payload.Len() > 0 {
 		if i >= len(flowSet.Records) {
 			flowSet.Records = append(flowSet.Records, DataRecord{})
 		}
 
 		datafields := &flowSet.Records[i].Values
-		if err := DecodeDataRecordFields(payloadLim, listFields, datafields); err != nil {
+		if err := DecodeDataRecordFields(payload, listFields, datafields); err != nil {
 			return err
 		}
 
 		i++
 	}
-
 	flowSet.Records = flowSet.Records[:i]
 	return nil
 }
@@ -533,7 +564,9 @@ func (f *FlowMessage) DecodeIPFIXPacket(payload *bytes.Buffer, templates NetFlow
 	)
 
 	for i := 0; i < int(f.PacketIPFIX.Length) && payload.Len() > 0; i++ {
-		f.fsheader.ReadFrom(payload)
+		if ok := f.fsheader.ReadFrom(payload); !ok {
+			return NewErrorDecodingNetFlow("error decoding packet: invalid FlowSet header.")
+		}
 
 		nextrelpos := int(f.fsheader.Length) - flowSetHeaderSize
 		if nextrelpos < 0 {

@@ -114,6 +114,24 @@ type Field struct {
 
 	// The length (in bytes) of the field.
 	Length uint16
+
+	// IANA private enterprise number (PEN) of the authority defining the
+	// Information Element identifier in this Template Record.
+	//
+	// Note: it's valid only for v10(IPFIX).
+	EnterpriseNumber uint32
+}
+
+// IsVariableLength reports whether the Field is variable-length Information
+// Element (RFC 7011 sec. 3.2. Field Specifier Format).
+func (f *Field) IsVariableLength() bool {
+	return f.Length == 0xffff
+}
+
+// ContainsEnterpriseNumber reports whether the Field is an enterprise-specific
+// Information Element (RFC 7011 sec. 3.2. Field Specifier Format).
+func (f *Field) ContainsEnterpriseNumber() bool {
+	return f.Type&0x8000 != 0
 }
 
 // DataField contains the type and record value itself.
@@ -161,9 +179,17 @@ func (f *Field) ReadFrom(b *bytes.Buffer) bool {
 	if ok := utils.ReadUint16FromBuffer(b, &f.Type); !ok {
 		return false
 	}
+
 	if ok := utils.ReadUint16FromBuffer(b, &f.Length); !ok {
 		return false
 	}
+
+	if f.ContainsEnterpriseNumber() {
+		if ok := utils.ReadUint32FromBuffer(b, &f.EnterpriseNumber); !ok {
+			return false
+		}
+	}
+
 	return true
 }
 
