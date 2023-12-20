@@ -5,6 +5,7 @@ import (
 	"flag"
 	"fmt"
 	"sync"
+	"net"
 	// "os"
 	// "reflect"
 	// "strings"
@@ -91,29 +92,28 @@ func StartClickHouseConnection(logger utils.Logger) (*ClickHouseState, error) {
 	//https://clickhouse.tech/docs/en/engines/table-engines/mergetree-family/mergetree/
 	_, err = dbConn.Exec(fmt.Sprintf(`
 	CREATE TABLE IF NOT EXISTS %s.nflow (
-    
-	    TimeReceived UInt32,
-	    TimeFlowStart UInt32,
-	    TimeFlowEnd UInt32,
-	    Bytes UInt16,
-	    Etype UInt32,
-	    Packets UInt64,
-	    SrcAddr UInt32,
-	    DstAddr UInt32,
-	    SrcPort UInt32,
-	    DstPort UInt32,
-	    Proto UInt32,
-	    SrcMac UInt64,
-	    DstMac UInt64,
-	    SrcVlan UInt32,
-	    DstVlan UInt32,
-	    VlanId UInt32,
-	    FlowType UInt8
+    TimeReceived DateTime CODEC(Delta, ZSTD),
+    TimeFlowStart DateTime CODEC(Delta, ZSTD),
+    TimeFlowEnd DateTime CODEC(Delta, ZSTD),
+    Bytes UInt16,
+    Etype UInt32,
+    Packets UInt64,
+    SrcAddr IPv4 CODEC(ZSTD),
+    DstAddr IPv4 CODEC(ZSTD),
+    SrcPort UInt32,
+    DstPort UInt32,
+    Proto UInt32,
+    SrcMac UInt64 CODEC(ZSTD),
+    DstMac UInt64 CODEC(ZSTD),
+    SrcVlan UInt32,
+    DstVlan UInt32,
+    VlanId UInt32,
+    FlowType UInt8
 
-	) ENGINE = MergeTree() 
-	ORDER BY (TimeReceived, SrcAddr, SrcPort, DstAddr, DstPort)
-	PARTITION BY DstAddr
-	SAMPLE BY SrcAddr
+) ENGINE = MergeTree()
+ORDER BY (TimeReceived, SrcAddr, SrcPort, DstAddr, DstPort)
+TTL TimeReceived + interval 18 week
+PARTITION BY toYYYYMMDD(TimeReceived)
 	`,  *ClickHouseDatabase))
 
 	if err != nil {
@@ -143,8 +143,11 @@ func ClickHouseInsert(fm *flowmessage.FlowMessage, stmt *sql.Stmt, wg *sync.Wait
 	
 
 	// assume and encode as IPv4 (even if its v6)
-	srcAddr := ipv4BytesToUint32(fm.GetSrcAddr()[:4])
-	dstAddr := ipv4BytesToUint32(fm.GetDstAddr()[:4])
+	//srcAddr := ipv4BytesToUint32(fm.GetSrcAddr()[:4])
+	//dstAddr := ipv4BytesToUint32(fm.GetDstAddr()[:4])
+	srcAddr:= net.IP(fm.GetSrcAddr()[:4]).To4().String()
+	dstAddr:= net.IP(fm.GetDstAddr()[:4]).To4().String()
+    
 	
 
 	count += 1
