@@ -26,6 +26,7 @@ var (
 	ClickHouseUser *string
 	ClickHousePassword *string
 	ClickHouseDatabase *string
+	ClickHouseTable *string
 	count uint64
 	tx *sql.Tx
 
@@ -45,6 +46,7 @@ func RegisterFlags() {
 	ClickHouseUser   = flag.String("ch.username", "default", "ClickHouse username")
 	ClickHousePassword   = flag.String("ch.password", "default", "ClickHouse password")
 	ClickHouseDatabase   = flag.String("ch.database", "default", "ClickHouse database")
+	ClickHouseTable   = flag.String("ch.table", "netflow", "ClickHouse table")
 
 	// future: add batch size to batch insert
 }
@@ -61,8 +63,8 @@ func StartClickHouseConnection(logger utils.Logger) (*ClickHouseState, error) {
 
 	fmt.Printf("clickhouse server on %v:%v\n", *ClickHouseAddr, *ClickHousePort)
 
-	connStr := fmt.Sprintf("tcp://%s:%d?username=%s&password=%s&database=%s&debug=true",
-		 *ClickHouseAddr, *ClickHousePort, *ClickHouseUser, *ClickHousePassword, *ClickHouseDatabase)
+	connStr := fmt.Sprintf("tcp://%s:%d?username=%s&password=%s&database=%s&table=%s&debug=true",
+		 *ClickHouseAddr, *ClickHousePort, *ClickHouseUser, *ClickHousePassword, *ClickHouseDatabase, *ClickHouseTable)
 
 
 	// open DB dbConnion stuff
@@ -91,13 +93,13 @@ func StartClickHouseConnection(logger utils.Logger) (*ClickHouseState, error) {
 	// use MergeTree engine to optimize storage
 	//https://clickhouse.tech/docs/en/engines/table-engines/mergetree-family/mergetree/
 	_, err = dbConn.Exec(fmt.Sprintf(`
-	CREATE TABLE IF NOT EXISTS %s.nflow (
+	CREATE TABLE IF NOT EXISTS %s.%s (
     TimeReceived DateTime CODEC(Delta, ZSTD),
     TimeFlowStart DateTime CODEC(Delta, ZSTD),
     TimeFlowEnd DateTime CODEC(Delta, ZSTD),
-    Bytes UInt16,
+    Bytes UInt64 CODEC(ZSTD(1)),
     Etype UInt32,
-    Packets UInt64,
+    Packets UInt32,
     SrcAddr IPv4 CODEC(ZSTD),
     DstAddr IPv4 CODEC(ZSTD),
     SrcPort UInt32,
@@ -114,7 +116,7 @@ func StartClickHouseConnection(logger utils.Logger) (*ClickHouseState, error) {
 ORDER BY (TimeReceived, SrcAddr, SrcPort, DstAddr, DstPort)
 TTL TimeReceived + interval 18 week
 PARTITION BY toYYYYMMDD(TimeReceived)
-	`,  *ClickHouseDatabase))
+	`,  *ClickHouseDatabase,*ClickHouseTable))
 
 	if err != nil {
 		logger.Fatalf("couldn't create table (%v)", err)
@@ -178,13 +180,14 @@ func ClickHouseInsert(fm *flowmessage.FlowMessage, stmt *sql.Stmt, wg *sync.Wait
 	
 	// -----------------------------------------------
 
-	fmt.Printf("src (%v) %v:%v\ndst (%v) %v:%v\ncount:%v\n------\n",
+	fmt.Printf("src (%v) %v:%v\ndst (%v) %v:%v\nbytes:%v\ncount:%v\n------\n",
 	 	srcAddr,
 	 	fm.GetSrcAddr(), 
 		fm.GetSrcPort(), 
 		dstAddr,
 		fm.GetDstAddr(), 
 		fm.GetDstPort(),
+		fm.GetBytes(),
 		count)
 
 
@@ -202,10 +205,10 @@ func (s ClickHouseState) Publish(msgs []*flowmessage.FlowMessage) {
 
 	tx, _  = dbConn.Begin()
 
-	stmt, err := tx.Prepare(fmt.Sprintf(`INSERT INTO %s.nflow(TimeReceived, 
+	stmt, err := tx.Prepare(fmt.Sprintf(`INSERT INTO %s.%s(TimeReceived, 
 		TimeFlowStart,TimeFlowEnd,Bytes,Etype,Packets,SrcAddr,DstAddr,SrcPort,
 		DstPort,Proto,SrcMac,DstMac,SrcVlan,DstVlan,VlanId,FlowType) 
-		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, *ClickHouseDatabase))
+		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, *ClickHouseDatabase,*ClickHouseTable))
 
 	if (err != nil) {
 		fmt.Printf("Couldn't prepare statement (%v)\n", err)
