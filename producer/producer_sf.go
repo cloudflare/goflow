@@ -184,7 +184,7 @@ func ParseSampledHeaderConfig(flowMessage *flowmessage.FlowMessage, sampledHeade
 				dstPort = binary.BigEndian.Uint16(data[offset+2 : offset+4])
 			}
 
-			if len(data) >= offset+13 && nextHeader == 6 {
+			if len(data) >= offset+14 && nextHeader == 6 {
 				tcpflags = data[offset+13]
 			}
 

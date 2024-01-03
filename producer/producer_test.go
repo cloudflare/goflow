@@ -76,3 +76,36 @@ func TestProcessMessageSFlow(t *testing.T) {
 	_, err := ProcessMessageSFlow(pkt)
 	assert.Nil(t, err)
 }
+
+func TestProcessMessageSFlowBug(t *testing.T) {
+
+	sh := sflow.SampledHeader{
+		FrameLength: 10,
+		Protocol:    1,
+		HeaderData:  []byte("000000000000\x88G0010A00000000\x0600000000000000000000000"),
+	}
+
+	pkt := sflow.Packet{
+		Version: 5,
+		Samples: []interface{}{
+			sflow.FlowSample{
+				SamplingRate: 1,
+				Records: []sflow.FlowRecord{
+					sflow.FlowRecord{
+						Data: sh,
+					},
+				},
+			},
+			sflow.ExpandedFlowSample{
+				SamplingRate: 1,
+				Records: []sflow.FlowRecord{
+					sflow.FlowRecord{
+						Data: sh,
+					},
+				},
+			},
+		},
+	}
+
+	ProcessMessageSFlow(pkt)
+}

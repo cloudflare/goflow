@@ -132,3 +132,7 @@ func getExpandedSFlowDecode() []byte {
 		0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	}
 }
+
+func TestDecodeMessage_run_out_of_memory(t *testing.T) {
+	DecodeMessage(bytes.NewBuffer([]byte("\x00\x00\x00\x05\x00\x00\x00\x010000\xff\xff\xea\xea\xea\xea\xea\xea\xea\xea\xea\xea\xea\xea\xea\xea")))
+}
