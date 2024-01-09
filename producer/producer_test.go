@@ -10,30 +10,32 @@ import (
 
 func TestProcessMessageNetFlow(t *testing.T) {
 	records := []netflow.DataRecord{
-		netflow.DataRecord{
+		{
 			Values: []netflow.DataField{
-				netflow.DataField{
+				{
 					Type:  netflow.NFV9_FIELD_IPV4_SRC_ADDR,
 					Value: []byte{10, 0, 0, 1},
 				},
 			},
 		},
 	}
-	dfs := []interface{}{
-		netflow.DataFlowSet{
+
+	dfs := []netflow.DataFlowSet{
+		{
 			Records: records,
 		},
 	}
 
 	pktnf9 := netflow.NFv9Packet{
-		FlowSets: dfs,
+		FlowSets: netflow.FlowSets{DataFS: dfs},
 	}
+
 	testsr := &SingleSamplingRateSystem{1}
 	_, err := ProcessMessageNetFlow(pktnf9, testsr)
 	assert.Nil(t, err)
 
 	pktipfix := netflow.IPFIXPacket{
-		FlowSets: dfs,
+		FlowSets: netflow.FlowSets{DataFS: dfs},
 	}
 	_, err = ProcessMessageNetFlow(pktipfix, testsr)
 	assert.Nil(t, err)
@@ -58,7 +60,7 @@ func TestProcessMessageSFlow(t *testing.T) {
 			sflow.FlowSample{
 				SamplingRate: 1,
 				Records: []sflow.FlowRecord{
-					sflow.FlowRecord{
+					{
 						Data: sh,
 					},
 				},
@@ -66,7 +68,7 @@ func TestProcessMessageSFlow(t *testing.T) {
 			sflow.ExpandedFlowSample{
 				SamplingRate: 1,
 				Records: []sflow.FlowRecord{
-					sflow.FlowRecord{
+					{
 						Data: sh,
 					},
 				},
