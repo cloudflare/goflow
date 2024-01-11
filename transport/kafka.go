@@ -51,7 +51,7 @@ func ParseKafkaVersion(versionString string) (sarama.KafkaVersion, error) {
 	return sarama.ParseKafkaVersion(versionString)
 }
 
-func RegisterFlags() {
+func registerKafkaFlags() {
 	KafkaTLS = flag.Bool("kafka.tls", false, "Use TLS to connect to Kafka")
 	KafkaSASL = flag.Bool("kafka.sasl", false, "Use SASL/PLAIN data to connect to Kafka (TLS is recommended and the environment variables KAFKA_SASL_USER and KAFKA_SASL_PASS need to be set)")
 	KafkaTopic = flag.String("kafka.topic", "flow-messages", "Kafka topic to produce to")
