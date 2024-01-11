@@ -74,6 +74,6 @@ func ProcessMessageNetFlowLegacy(msgDec interface{}) ([]*flowmessage.FlowMessage
 
 		return flowMessageSet, nil
 	default:
-		return []*flowmessage.FlowMessage{}, errors.New("Bad NetFlow v5 version")
+		return []*flowmessage.FlowMessage{}, errors.New("bad NetFlow v5 version")
 	}
 }

@@ -1,8 +1,33 @@
 package netflow
 
 import (
+	"bytes"
 	"fmt"
+
+	"github.com/cloudflare/goflow/v3/decoders/utils"
 )
+
+const (
+	netflow                       = 9
+	ipfix                         = 10
+	nfv9TemplateFlowSetID         = 0
+	nfv9OptionsTemplateFlowSetID  = 1
+	ipfixTemplateFlowSetID        = 2
+	ipfixOptionsTemplateFlowSetID = 3
+	dataTemplateFlowSetID         = 256
+
+	flowSetHeaderSize = 4
+)
+
+// FlowSets is a wrapper that contains different types of FlowSets that must be
+// parsed and interpreted by the collector device.
+type FlowSets struct {
+	TemplateFS             []TemplateFlowSet
+	DataFS                 []DataFlowSet
+	OptionsDataFS          []OptionsDataFlowSet
+	NFv9OptionsTemplateFS  []NFv9OptionsTemplateFlowSet
+	IPFIXOptionsTemplateFS []IPFIXOptionsTemplateFlowSet
+}
 
 // FlowSetHeader contains fields shared by all Flow Sets (DataFlowSet,
 // TemplateFlowSet, OptionsTemplateFlowSet).
@@ -31,12 +56,15 @@ type TemplateFlowSet struct {
 type DataFlowSet struct {
 	FlowSetHeader
 
+	// List of Data Records
 	Records []DataRecord
 }
 
+// OptionsDataFlowSet is a collection of Options Data Records.
 type OptionsDataFlowSet struct {
 	FlowSetHeader
 
+	// List of Options Data Records
 	Records []OptionsDataRecord
 }
 
@@ -59,7 +87,11 @@ type TemplateRecord struct {
 	Fields []Field
 }
 
+// DataRecord is is a collection of field values.
+// The type and length of the fields have been previously defined in the
+// template record referenced by the FlowSet ID/template ID.
 type DataRecord struct {
+	// List of fields in this Data Record.
 	Values []DataField
 }
 
@@ -82,15 +114,83 @@ type Field struct {
 
 	// The length (in bytes) of the field.
 	Length uint16
+
+	// IANA private enterprise number (PEN) of the authority defining the
+	// Information Element identifier in this Template Record.
+	//
+	// Note: it's valid only for v10(IPFIX).
+	EnterpriseNumber uint32
 }
 
+// IsVariableLength reports whether the Field is variable-length Information
+// Element (RFC 7011 sec. 3.2. Field Specifier Format).
+func (f *Field) IsVariableLength() bool {
+	return f.Length == 0xffff
+}
+
+// ContainsEnterpriseNumber reports whether the Field is an enterprise-specific
+// Information Element (RFC 7011 sec. 3.2. Field Specifier Format).
+func (f *Field) ContainsEnterpriseNumber() bool {
+	return f.Type&0x8000 != 0
+}
+
+// DataField contains the type and record value itself.
 type DataField struct {
 	// A numeric value that represents the type of field.
 	Type uint16
 
 	// The value (in bytes) of the field.
-	Value interface{}
-	//Value []byte
+	Value []byte
+}
+
+// ReadFrom reads into receiver's fields Uint values from buffer and returns
+// boolean flag telling if it was a success.
+//
+// Value is treated as big endian.
+func (f *FlowSetHeader) ReadFrom(b *bytes.Buffer) bool {
+	if ok := utils.ReadUint16FromBuffer(b, &f.Id); !ok {
+		return false
+	}
+	if ok := utils.ReadUint16FromBuffer(b, &f.Length); !ok {
+		return false
+	}
+	return true
+}
+
+// ReadFrom reads into receiver's fields Uint values from buffer and returns
+// boolean flag telling if it was a success.
+//
+// Value is treated as big endian.
+func (t *TemplateRecord) ReadFrom(b *bytes.Buffer) bool {
+	if ok := utils.ReadUint16FromBuffer(b, &t.TemplateId); !ok {
+		return false
+	}
+	if ok := utils.ReadUint16FromBuffer(b, &t.FieldCount); !ok {
+		return false
+	}
+	return true
+}
+
+// ReadFrom reads into receiver's fields Uint values from buffer and returns
+// boolean flag telling if it was a success.
+//
+// Value is treated as big endian.
+func (f *Field) ReadFrom(b *bytes.Buffer) bool {
+	if ok := utils.ReadUint16FromBuffer(b, &f.Type); !ok {
+		return false
+	}
+
+	if ok := utils.ReadUint16FromBuffer(b, &f.Length); !ok {
+		return false
+	}
+
+	if f.ContainsEnterpriseNumber() {
+		if ok := utils.ReadUint32FromBuffer(b, &f.EnterpriseNumber); !ok {
+			return false
+		}
+	}
+
+	return true
 }
 
 func (flowSet OptionsDataFlowSet) String(TypeToString func(uint16) string, ScopeToString func(uint16) string) string {

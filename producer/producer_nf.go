@@ -34,7 +34,7 @@ func CreateSamplingSystem() SamplingRateSystem {
 func (s *basicSamplingRateSystem) AddSamplingRate(version uint16, obsDomainId uint32, samplingRate uint32) {
 	s.samplinglock.Lock()
 	_, exists := s.sampling[version]
-	if exists != true {
+	if !exists {
 		s.sampling[version] = make(map[uint32]uint32)
 	}
 	s.sampling[version][obsDomainId] = samplingRate
@@ -119,7 +119,7 @@ func DecodeUNumber(b []byte, out interface{}) error {
 				iter++
 			}
 		} else {
-			return errors.New(fmt.Sprintf("Non-regular number of bytes for a number: %v", l))
+			return fmt.Errorf("non-regular number of bytes for a number: %v", l)
 		}
 	}
 	switch t := out.(type) {
@@ -132,7 +132,7 @@ func DecodeUNumber(b []byte, out interface{}) error {
 	case *uint64:
 		*t = o
 	default:
-		return errors.New("The parameter is not a pointer to a byte/uint16/uint32/uint64 structure")
+		return errors.New("the parameter is not a pointer to a byte/uint16/uint32/uint64 structure")
 	}
 	return nil
 }
@@ -150,13 +150,9 @@ func ConvertNetFlowDataSet(version uint16, baseTime uint32, uptime uint32, recor
 	for i := range record {
 		df := record[i]
 
-		v, ok := df.Value.([]byte)
-		if !ok {
-			continue
-		}
+		v := df.Value
 
 		switch df.Type {
-
 		// Statistics
 		case netflow.NFV9_FIELD_IN_BYTES:
 			DecodeUNumber(v, &(flowMessage.Bytes))
@@ -382,43 +378,11 @@ func SearchNetFlowOptionDataSets(dataFlowSet []netflow.OptionsDataFlowSet) (uint
 }
 
 func SplitNetFlowSets(packetNFv9 netflow.NFv9Packet) ([]netflow.DataFlowSet, []netflow.TemplateFlowSet, []netflow.NFv9OptionsTemplateFlowSet, []netflow.OptionsDataFlowSet) {
-	dataFlowSet := make([]netflow.DataFlowSet, 0)
-	templatesFlowSet := make([]netflow.TemplateFlowSet, 0)
-	optionsTemplatesFlowSet := make([]netflow.NFv9OptionsTemplateFlowSet, 0)
-	optionsDataFlowSet := make([]netflow.OptionsDataFlowSet, 0)
-	for _, flowSet := range packetNFv9.FlowSets {
-		switch flowSet.(type) {
-		case netflow.TemplateFlowSet:
-			templatesFlowSet = append(templatesFlowSet, flowSet.(netflow.TemplateFlowSet))
-		case netflow.NFv9OptionsTemplateFlowSet:
-			optionsTemplatesFlowSet = append(optionsTemplatesFlowSet, flowSet.(netflow.NFv9OptionsTemplateFlowSet))
-		case netflow.DataFlowSet:
-			dataFlowSet = append(dataFlowSet, flowSet.(netflow.DataFlowSet))
-		case netflow.OptionsDataFlowSet:
-			optionsDataFlowSet = append(optionsDataFlowSet, flowSet.(netflow.OptionsDataFlowSet))
-		}
-	}
-	return dataFlowSet, templatesFlowSet, optionsTemplatesFlowSet, optionsDataFlowSet
+	return packetNFv9.DataFS, packetNFv9.TemplateFS, packetNFv9.NFv9OptionsTemplateFS, packetNFv9.OptionsDataFS
 }
 
 func SplitIPFIXSets(packetIPFIX netflow.IPFIXPacket) ([]netflow.DataFlowSet, []netflow.TemplateFlowSet, []netflow.IPFIXOptionsTemplateFlowSet, []netflow.OptionsDataFlowSet) {
-	dataFlowSet := make([]netflow.DataFlowSet, 0)
-	templatesFlowSet := make([]netflow.TemplateFlowSet, 0)
-	optionsTemplatesFlowSet := make([]netflow.IPFIXOptionsTemplateFlowSet, 0)
-	optionsDataFlowSet := make([]netflow.OptionsDataFlowSet, 0)
-	for _, flowSet := range packetIPFIX.FlowSets {
-		switch flowSet.(type) {
-		case netflow.TemplateFlowSet:
-			templatesFlowSet = append(templatesFlowSet, flowSet.(netflow.TemplateFlowSet))
-		case netflow.IPFIXOptionsTemplateFlowSet:
-			optionsTemplatesFlowSet = append(optionsTemplatesFlowSet, flowSet.(netflow.IPFIXOptionsTemplateFlowSet))
-		case netflow.DataFlowSet:
-			dataFlowSet = append(dataFlowSet, flowSet.(netflow.DataFlowSet))
-		case netflow.OptionsDataFlowSet:
-			optionsDataFlowSet = append(optionsDataFlowSet, flowSet.(netflow.OptionsDataFlowSet))
-		}
-	}
-	return dataFlowSet, templatesFlowSet, optionsTemplatesFlowSet, optionsDataFlowSet
+	return packetIPFIX.DataFS, packetIPFIX.TemplateFS, packetIPFIX.IPFIXOptionsTemplateFS, packetIPFIX.OptionsDataFS
 }
 
 // Convert a NetFlow datastructure to a FlowMessage protobuf
@@ -474,7 +438,7 @@ func ProcessMessageNetFlow(msgDec interface{}, samplingRateSys SamplingRateSyste
 			fmsg.SamplingRate = uint64(samplingRate)
 		}
 	default:
-		return flowMessageSet, errors.New("Bad NetFlow/IPFIX version")
+		return flowMessageSet, errors.New("bad NetFlow/IPFIX version")
 	}
 
 	return flowMessageSet, nil
