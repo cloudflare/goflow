@@ -2,33 +2,28 @@ package transport
 
 import (
 	// "errors"
-	"flag"
+
 	"fmt"
-	"sync"
 	"net"
+	"sync"
+
 	// "os"
 	// "reflect"
 	// "strings"
 
+	. "github.com/cloudflare/goflow/v3/conf"
 	flowmessage "github.com/cloudflare/goflow/v3/pb"
 	"github.com/cloudflare/goflow/v3/utils"
 
 	"database/sql"
+
 	"github.com/ClickHouse/clickhouse-go"
 	// proto "github.com/golang/protobuf/proto"
 )
 
-
-
 var (
-	ClickHouseAddr *string
-	ClickHousePort *int
-	ClickHouseUser *string
-	ClickHousePassword *string
-	ClickHouseDatabase *string
-	ClickHouseTable *string
 	count uint64
-	tx *sql.Tx
+	tx    *sql.Tx
 
 	dbConn *sql.DB
 )
@@ -37,41 +32,31 @@ type ClickHouseState struct {
 	FixedLengthProto bool
 }
 
-
-
-
-func RegisterFlags() {
-	ClickHouseAddr   = flag.String("ch.addr", "127.0.0.1", "ClickHouse DB Host")
-	ClickHousePort   = flag.Int("ch.port", 9000, "ClickHouse DB port")
-	ClickHouseUser   = flag.String("ch.username", "default", "ClickHouse username")
-	ClickHousePassword   = flag.String("ch.password", "default", "ClickHouse password")
-	ClickHouseDatabase   = flag.String("ch.database", "default", "ClickHouse database")
-	ClickHouseTable   = flag.String("ch.table", "netflow", "ClickHouse table")
-
-	// future: add batch size to batch insert
-}
-
-
 func StartClickHouseConnection(logger utils.Logger) (*ClickHouseState, error) {
-		
+
 	count = 0
+	chDebug := "debug=false"
 
 	if ClickHouseAddr == nil {
-        temp := "<nil>" // *string cannot be initialized
-        ClickHouseAddr = &temp // in one statement
-    }
+		temp := "<nil>"        // *string cannot be initialized
+		ClickHouseAddr = &temp // in one statement
+	}
 
-	fmt.Printf("clickhouse server on %v:%v\n", *ClickHouseAddr, *ClickHousePort)
+	if *LogLevel == "debug" {
+		chDebug = "debug=true"
+	}
 
-	connStr := fmt.Sprintf("tcp://%s:%d?username=%s&password=%s&database=%s&table=%s&debug=true",
-		 *ClickHouseAddr, *ClickHousePort, *ClickHouseUser, *ClickHousePassword, *ClickHouseDatabase, *ClickHouseTable)
-
+	connStr := fmt.Sprintf("tcp://%s:%d?username=%s&password=%s&database=%s&table=%s&%s",
+		*ClickHouseAddr, *ClickHousePort, *ClickHouseUser, *ClickHousePassword, *ClickHouseDatabase, *ClickHouseTable, chDebug)
 
 	// open DB dbConnion stuff
 	connect, err := sql.Open("clickhouse", connStr)
 	dbConn = connect
 	if err != nil {
 		logger.Fatalf("couldn't dbConn to db (%v)", err)
+	} else {
+		fmt.Printf("NetFlow-clickhouse collector\nConnected to clickhouse\n server on %v:%v\n database:%s\n table: %s \n debug: %s",
+			*ClickHouseAddr, *ClickHousePort, *ClickHouseDatabase, *ClickHouseTable, chDebug)
 	}
 	if err := dbConn.Ping(); err != nil {
 		if exception, ok := err.(*clickhouse.Exception); ok {
@@ -82,10 +67,10 @@ func StartClickHouseConnection(logger utils.Logger) (*ClickHouseState, error) {
 		// return
 	}
 
-	// create DB schema, if not exist 
+	// create DB schema, if not exist
 	_, err = dbConn.Exec(fmt.Sprintf(`
 		CREATE DATABASE IF NOT EXISTS %s
-	`,  *ClickHouseDatabase))
+	`, *ClickHouseDatabase))
 	if err != nil {
 		logger.Fatalf("couldn't create database '%s' (%v)", *ClickHouseDatabase, err)
 	}
@@ -116,41 +101,33 @@ func StartClickHouseConnection(logger utils.Logger) (*ClickHouseState, error) {
 ORDER BY (TimeReceived, SrcAddr, SrcPort, DstAddr, DstPort)
 TTL TimeReceived + interval 18 week
 PARTITION BY toYYYYMMDD(TimeReceived)
-	`,  *ClickHouseDatabase,*ClickHouseTable))
+	`, *ClickHouseDatabase, *ClickHouseTable))
 
 	if err != nil {
 		logger.Fatalf("couldn't create table (%v)", err)
 	}
 
-
 	// start transaction prep
 
-	
-
 	// defer stmt.Close()
-	state := ClickHouseState { FixedLengthProto: true }
+	state := ClickHouseState{FixedLengthProto: true}
 
 	return &state, nil
 
-	
 }
 
-func ipv4BytesToUint32(b []byte) (uint32) {
-	return uint32(b[0]) << 24 + uint32(b[1]) << 16 + uint32(b[2]) << 8 + uint32(b[3])
+func ipv4BytesToUint32(b []byte) uint32 {
+	return uint32(b[0])<<24 + uint32(b[1])<<16 + uint32(b[2])<<8 + uint32(b[3])
 }
 
 func ClickHouseInsert(fm *flowmessage.FlowMessage, stmt *sql.Stmt, wg *sync.WaitGroup) {
 	// extract fields out of the flow message
-	
-	
 
 	// assume and encode as IPv4 (even if its v6)
 	//srcAddr := ipv4BytesToUint32(fm.GetSrcAddr()[:4])
 	//dstAddr := ipv4BytesToUint32(fm.GetDstAddr()[:4])
-	srcAddr:= net.IP(fm.GetSrcAddr()[:4]).To4().String()
-	dstAddr:= net.IP(fm.GetDstAddr()[:4]).To4().String()
-    
-	
+	srcAddr := net.IP(fm.GetSrcAddr()[:4]).To4().String()
+	dstAddr := net.IP(fm.GetDstAddr()[:4]).To4().String()
 
 	count += 1
 	// fmt.Printf("stmt: %v\n", stmt)
@@ -177,20 +154,20 @@ func ClickHouseInsert(fm *flowmessage.FlowMessage, stmt *sql.Stmt, wg *sync.Wait
 	}
 
 	wg.Done()
-	
+
 	// -----------------------------------------------
 
-	fmt.Printf("src (%v) %v:%v\ndst (%v) %v:%v\nbytes:%v\ncount:%v\n------\n",
-	 	srcAddr,
-	 	fm.GetSrcAddr(), 
-		fm.GetSrcPort(), 
-		dstAddr,
-		fm.GetDstAddr(), 
-		fm.GetDstPort(),
-		fm.GetBytes(),
-		count)
-
-
+	if *LogLevel == "debug" {
+		fmt.Printf("src (%v) %v:%v\ndst (%v) %v:%v\nbytes:%v\ncount:%v\n------\n",
+			srcAddr,
+			fm.GetSrcAddr(),
+			fm.GetSrcPort(),
+			dstAddr,
+			fm.GetDstAddr(),
+			fm.GetDstPort(),
+			fm.GetBytes(),
+			count)
+	}
 
 }
 
@@ -200,22 +177,21 @@ func (s ClickHouseState) Publish(msgs []*flowmessage.FlowMessage) {
 
 	// we need a semaphore / counter that increments inside the goroutines
 	// WaitGroup ~= semaphore
-	
+
 	var wg sync.WaitGroup
 
-	tx, _  = dbConn.Begin()
+	tx, _ = dbConn.Begin()
 
 	stmt, err := tx.Prepare(fmt.Sprintf(`INSERT INTO %s.%s(TimeReceived, 
 		TimeFlowStart,TimeFlowEnd,Bytes,Etype,Packets,SrcAddr,DstAddr,SrcPort,
 		DstPort,Proto,SrcMac,DstMac,SrcVlan,DstVlan,VlanId,FlowType) 
-		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, *ClickHouseDatabase,*ClickHouseTable))
+		VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, *ClickHouseDatabase, *ClickHouseTable))
 
-	if (err != nil) {
+	if err != nil {
 		fmt.Printf("Couldn't prepare statement (%v)\n", err)
 		// stmt.Close()
 		return
 	}
-
 
 	for _, msg := range msgs {
 		wg.Add(1)
@@ -229,10 +205,7 @@ func (s ClickHouseState) Publish(msgs []*flowmessage.FlowMessage) {
 		fmt.Printf("Couldn't commit transactions (%v)\n", err)
 	}
 
-
-
-	
-	// commit after all of those are inserted 
+	// commit after all of those are inserted
 	// fmt.Println("\noutside loop!\n")
 
 }
