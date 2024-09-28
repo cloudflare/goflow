@@ -1,8 +1,11 @@
 package netflow
 
 import (
+	"bytes"
 	"fmt"
 	"time"
+
+	"github.com/cloudflare/goflow/v3/decoders/utils"
 )
 
 const (
@@ -101,27 +104,101 @@ const (
 	NFV9_FIELD_layer2packetSectionData      = 104
 )
 
+// NFv9Packet is a representation of netflow(v9) protocol packet
 type NFv9Packet struct {
-	Version        uint16
-	Count          uint16
-	SystemUptime   uint32
-	UnixSeconds    uint32
+	// Version is version of NetFlow records exported in this packet.
+	Version uint16
+
+	// Count is a number of FlowSet records (both template and data) contained
+	// within this packet.
+	Count uint16
+
+	// SystemUptime is a time in milliseconds since this device was first booted.
+	SystemUptime uint32
+
+	// UnixSeconds is seconds since 0000 Coordinated Universal Time (UTC) 1970.
+	UnixSeconds uint32
+
+	// SequenceNumber is incremental sequence counter of all export packets sent by this export
+	// device; This value is cumulative, and it can be used to identify whether
+	// any export packets have been missed.
 	SequenceNumber uint32
-	SourceId       uint32
-	FlowSets       []interface{}
+
+	// SourceId is a field is a 32-bit value that is used to guarantee
+	// uniqueness for all flows exported from a particular device.
+	SourceId uint32
+
+	FlowSets
 }
 
+// ReadFrom reads into receiver's fields Uint values from buffer and returns
+// boolean flag telling if it was a success.
+//
+// Value is treated as big endian.
+func (x *NFv9Packet) ReadFrom(b *bytes.Buffer) bool {
+	if ok := utils.ReadUint16FromBuffer(b, &x.Count); !ok {
+		return false
+	}
+	if ok := utils.ReadUint32FromBuffer(b, &x.SystemUptime); !ok {
+		return false
+	}
+	if ok := utils.ReadUint32FromBuffer(b, &x.UnixSeconds); !ok {
+		return false
+	}
+	if ok := utils.ReadUint32FromBuffer(b, &x.SequenceNumber); !ok {
+		return false
+	}
+	if ok := utils.ReadUint32FromBuffer(b, &x.SourceId); !ok {
+		return false
+	}
+	return true
+}
+
+// NFv9OptionsTemplateFlowSet is a collection of Options Template Records.
 type NFv9OptionsTemplateFlowSet struct {
 	FlowSetHeader
 	Records []NFv9OptionsTemplateRecord
 }
 
+// NFv9OptionsTemplateRecord is a special type of template record used to
+// communicate the format of data related to the NetFlow process.
 type NFv9OptionsTemplateRecord struct {
-	TemplateId   uint16
-	ScopeLength  uint16
+	// TemplateId is a unique number in the range 256 to 65535 used for matching
+	// the type of NetFlow data it will be exporting.
+	TemplateId uint16
+
+	// ScopeLength is the length in bytes of any scope fields contained in
+	// this options template.
+	ScopeLength uint16
+
+	// OptionLength is the length (in bytes) of any Options field definitions
+	// contained in this options template.
 	OptionLength uint16
-	Scopes       []Field
-	Options      []Field
+
+	// Scopes is one or more Information Elements, specified in the Options
+	// Template Record.
+	Scopes []Field
+
+	// Options represents the type and length(in bytes) of the field that
+	// appears in the options record.
+	Options []Field
+}
+
+// ReadFrom reads into receiver's fields Uint values from buffer and returns
+// boolean flag telling if it was a success.
+//
+// Value is treated as big endian.
+func (x *NFv9OptionsTemplateRecord) ReadFrom(b *bytes.Buffer) bool {
+	if ok := utils.ReadUint16FromBuffer(b, &x.TemplateId); !ok {
+		return false
+	}
+	if ok := utils.ReadUint16FromBuffer(b, &x.ScopeLength); !ok {
+		return false
+	}
+	if ok := utils.ReadUint16FromBuffer(b, &x.OptionLength); !ok {
+		return false
+	}
+	return true
 }
 
 func NFv9TypeToString(typeId uint16) string {
@@ -293,25 +370,27 @@ func (p NFv9Packet) String() string {
 	str += fmt.Sprintf("  UnixSeconds: %v\n", unixSeconds.String())
 	str += fmt.Sprintf("  SequenceNumber: %v\n", p.SequenceNumber)
 	str += fmt.Sprintf("  SourceId: %v\n", p.SourceId)
-	str += fmt.Sprintf("  FlowSets (%v):\n", len(p.FlowSets))
+	str += fmt.Sprintf("  FlowSets (%v):\n", len(p.DataFS)+len(p.NFv9OptionsTemplateFS)+len(p.OptionsDataFS)+len(p.TemplateFS))
 
-	for i, flowSet := range p.FlowSets {
-		switch flowSet := flowSet.(type) {
-		case TemplateFlowSet:
-			str += fmt.Sprintf("    - TemplateFlowSet %v:\n", i)
-			str += flowSet.String(NFv9TypeToString)
-		case NFv9OptionsTemplateFlowSet:
-			str += fmt.Sprintf("    - OptionsTemplateFlowSet %v:\n", i)
-			str += flowSet.String(NFv9TypeToString)
-		case DataFlowSet:
-			str += fmt.Sprintf("    - DataFlowSet %v:\n", i)
-			str += flowSet.String(NFv9TypeToString)
-		case OptionsDataFlowSet:
-			str += fmt.Sprintf("    - OptionsDataFlowSet %v:\n", i)
-			str += flowSet.String(NFv9TypeToString, NFv9ScopeToString)
-		default:
-			str += fmt.Sprintf("    - (unknown type) %v: %v\n", i, flowSet)
-		}
+	for i, fs := range p.TemplateFS {
+		str += fmt.Sprintf("    - TemplateFlowSet %v:\n", i)
+		str += fs.String(NFv9TypeToString)
 	}
+
+	for i, fs := range p.NFv9OptionsTemplateFS {
+		str += fmt.Sprintf("    - OptionsTemplateFlowSet %v:\n", i)
+		str += fs.String(NFv9TypeToString)
+	}
+
+	for i, fs := range p.OptionsDataFS {
+		str += fmt.Sprintf("    - OptionsDataFlowSet %v:\n", i)
+		str += fs.String(NFv9TypeToString, NFv9ScopeToString)
+	}
+
+	for i, fs := range p.DataFS {
+		str += fmt.Sprintf("    - DataFlowSet %v:\n", i)
+		str += fs.String(NFv9TypeToString)
+	}
+
 	return str
 }
