@@ -39,6 +39,7 @@ var (
 	LogFmt   = flag.String("logfmt", "normal", "Log formatter")
 
 	EnableKafka = flag.Bool("kafka", true, "Enable Kafka")
+	EnableNats  = flag.Bool("nats", false, "Enable Nats (must disable Kafka)")
 	FixedLength = flag.Bool("proto.fixedlen", false, "Enable fixed length protobuf")
 	MetricsAddr = flag.String("metrics.addr", ":8080", "Metrics address")
 	MetricsPath = flag.String("metrics.path", "/metrics", "Metrics path")
@@ -107,6 +108,16 @@ func main() {
 		sSFlow.Transport = kafkaState
 		sNFL.Transport = kafkaState
 		sNF.Transport = kafkaState
+	} else if *EnableNats {
+		natsState, err := transport.StartNatsTransportFromArgs(log.StandardLogger())
+		if err != nil {
+			log.Fatal(err)
+		}
+		natsState.FixedLengthProto = *FixedLength
+		sSFlow.Transport = natsState
+		sNFL.Transport = natsState
+		sNF.Transport = natsState
+
 	}
 
 	wg := &sync.WaitGroup{}
