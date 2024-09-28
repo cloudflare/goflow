@@ -1,8 +1,11 @@
 package netflow
 
 import (
+	"bytes"
 	"fmt"
 	"time"
+
+	"github.com/cloudflare/goflow/v3/decoders/utils"
 )
 
 const (
@@ -445,26 +448,98 @@ const (
 	IPFIX_FIELD_natThresholdEvent                     = 467
 )
 
+// IPFIXPacket is a representation of ipfix(netflow v10) protocol packet.
 type IPFIXPacket struct {
-	Version             uint16
-	Length              uint16
-	ExportTime          uint32
-	SequenceNumber      uint32
+	// Version is version of ipfix records exported in this packet.
+	Version uint16
+
+	// Length is a total length of the IPFIX packet, measured in octets,
+	// including packet Header and Set(s).
+	Length uint16
+
+	// ExportTime is a time at which the IPFIX Message Header leaves the Exporter,
+	// expressed in seconds since the UNIX epoch of 1 January 1970 at
+	// 00:00 UTC, encoded as an unsigned 32-bit integer.
+	ExportTime uint32
+
+	// SequenceNumber is incremental sequence counter of all export packets sent by this export
+	// device; This value is cumulative, and it can be used to identify whether
+	// any export packets have been missed.
+	SequenceNumber uint32
+
+	// ObservationDomainId is a 32-bit identifier of the Observation Domain that
+	// is locally unique to the Exporting Process.
 	ObservationDomainId uint32
-	FlowSets            []interface{}
+
+	FlowSets
 }
 
+// ReadFrom reads into receiver's fields Uint values from buffer and returns
+// boolean flag telling if it was a success.
+//
+// Value is treated as big endian.
+func (x *IPFIXPacket) ReadFrom(b *bytes.Buffer) bool {
+	if ok := utils.ReadUint16FromBuffer(b, &x.Length); !ok {
+		return false
+	}
+	if ok := utils.ReadUint32FromBuffer(b, &x.ExportTime); !ok {
+		return false
+	}
+	if ok := utils.ReadUint32FromBuffer(b, &x.SequenceNumber); !ok {
+		return false
+	}
+	if ok := utils.ReadUint32FromBuffer(b, &x.ObservationDomainId); !ok {
+		return false
+	}
+	return true
+}
+
+// IPFIXOptionsTemplateFlowSet is a collection of Options Template Records.
 type IPFIXOptionsTemplateFlowSet struct {
 	FlowSetHeader
 	Records []IPFIXOptionsTemplateRecord
 }
 
+// IPFIXOptionsTemplateRecord contains any combination of IANA-assigned and/or
+// enterprise-specific Information Element identifiers.
 type IPFIXOptionsTemplateRecord struct {
-	TemplateId      uint16
-	FieldCount      uint16
+	// TemplateId is a unique number in the range 256 to 65535 used for matching
+	// the type of IPFIX data it will be exporting.
+	TemplateId uint16
+
+	// FieldCount is a number of all fields in this Options Template Record,
+	// including the Scope Fields.
+	FieldCount uint16
+
+	// ScopeFieldCount is a number of scope fields in this Options Template
+	// Record. The Scope Fields are normal Fields, except that they are
+	// interpreted as scope at the Collector.
 	ScopeFieldCount uint16
-	Options         []Field
-	Scopes          []Field
+
+	// Options represents the type and length(in bytes) of the field that
+	// appears in the options record.
+	Options []Field
+
+	// Scopes is one or more Information Elements, specified in the Options
+	// Template Record.
+	Scopes []Field
+}
+
+// ReadFrom reads into receiver's fields Uint values from buffer and returns
+// boolean flag telling if it was a success.
+//
+// Value is treated as big endian.
+func (x *IPFIXOptionsTemplateRecord) ReadFrom(b *bytes.Buffer) bool {
+	if ok := utils.ReadUint16FromBuffer(b, &x.TemplateId); !ok {
+		return false
+	}
+	if ok := utils.ReadUint16FromBuffer(b, &x.FieldCount); !ok {
+		return false
+	}
+	if ok := utils.ReadUint16FromBuffer(b, &x.ScopeFieldCount); !ok {
+		return false
+	}
+	return true
 }
 
 func IPFIXTypeToString(typeId uint16) string {
@@ -950,7 +1025,6 @@ func (flowSet IPFIXOptionsTemplateFlowSet) String(TypeToString func(uint16) stri
 		}
 
 	}
-
 	return str
 }
 
@@ -964,26 +1038,26 @@ func (p IPFIXPacket) String() string {
 	str += fmt.Sprintf("  ExportTime: %v\n", exportTime.String())
 	str += fmt.Sprintf("  SequenceNumber: %v\n", p.SequenceNumber)
 	str += fmt.Sprintf("  ObservationDomainId: %v\n", p.ObservationDomainId)
-	str += fmt.Sprintf("  FlowSets (%v):\n", len(p.FlowSets))
+	str += fmt.Sprintf("  FlowSets (%v):\n", len(p.DataFS)+len(p.IPFIXOptionsTemplateFS)+len(p.OptionsDataFS)+len(p.TemplateFS))
 
-	for i, flowSet := range p.FlowSets {
-		switch flowSet := flowSet.(type) {
-		case TemplateFlowSet:
-			str += fmt.Sprintf("    - TemplateFlowSet %v:\n", i)
-			str += flowSet.String(IPFIXTypeToString)
-		case IPFIXOptionsTemplateFlowSet:
-			str += fmt.Sprintf("    - OptionsTemplateFlowSet %v:\n", i)
-			str += flowSet.String(IPFIXTypeToString)
-		case DataFlowSet:
-			str += fmt.Sprintf("    - DataFlowSet %v:\n", i)
-			str += flowSet.String(IPFIXTypeToString)
-		case OptionsDataFlowSet:
-			str += fmt.Sprintf("    - OptionsDataFlowSet %v:\n", i)
-			str += flowSet.String(IPFIXTypeToString, IPFIXTypeToString)
-		default:
-			str += fmt.Sprintf("    - (unknown type) %v: %v\n", i, flowSet)
-		}
+	for i, fs := range p.TemplateFS {
+		str += fmt.Sprintf("    - TemplateFlowSet %v:\n", i)
+		str += fs.String(IPFIXTypeToString)
 	}
 
+	for i, fs := range p.IPFIXOptionsTemplateFS {
+		str += fmt.Sprintf("    - OptionsTemplateFlowSet %v:\n", i)
+		str += fs.String(IPFIXTypeToString)
+	}
+
+	for i, fs := range p.DataFS {
+		str += fmt.Sprintf("    - DataFlowSet %v:\n", i)
+		str += fs.String(IPFIXTypeToString)
+	}
+
+	for i, fs := range p.OptionsDataFS {
+		str += fmt.Sprintf("    - OptionsDataFlowSet %v:\n", i)
+		str += fs.String(IPFIXTypeToString, IPFIXTypeToString)
+	}
 	return str
 }

@@ -608,12 +608,15 @@ func (m *FlowMessage) GetPPPAddressControl() uint32 {
 	return 0
 }
 
+// Commented due to avoid "duplicate enum registered" error while importing both old and revised versions of parser.
+/*
 func init() {
 	proto.RegisterEnum("flowprotob.FlowMessage_FlowType", FlowMessage_FlowType_name, FlowMessage_FlowType_value)
 	proto.RegisterType((*FlowMessage)(nil), "flowprotob.FlowMessage")
 }
 
 func init() { proto.RegisterFile("pb/flow.proto", fileDescriptor_0beab9b6746e934c) }
+*/
 
 var fileDescriptor_0beab9b6746e934c = []byte{
 	// 943 bytes of a gzipped FileDescriptorProto
