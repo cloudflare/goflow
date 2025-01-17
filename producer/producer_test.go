@@ -10,9 +10,9 @@ import (
 
 func TestProcessMessageNetFlow(t *testing.T) {
 	records := []netflow.DataRecord{
-		netflow.DataRecord{
+		{
 			Values: []netflow.DataField{
-				netflow.DataField{
+				{
 					Type:  netflow.NFV9_FIELD_IPV4_SRC_ADDR,
 					Value: []byte{10, 0, 0, 1},
 				},
@@ -58,7 +58,7 @@ func TestProcessMessageSFlow(t *testing.T) {
 			sflow.FlowSample{
 				SamplingRate: 1,
 				Records: []sflow.FlowRecord{
-					sflow.FlowRecord{
+					{
 						Data: sh,
 					},
 				},
@@ -66,7 +66,7 @@ func TestProcessMessageSFlow(t *testing.T) {
 			sflow.ExpandedFlowSample{
 				SamplingRate: 1,
 				Records: []sflow.FlowRecord{
-					sflow.FlowRecord{
+					{
 						Data: sh,
 					},
 				},

@@ -254,11 +254,11 @@ func (ts *BasicTemplateSystem) GetTemplates() map[uint16]map[uint32]map[uint16]i
 func (ts *BasicTemplateSystem) AddTemplate(version uint16, obsDomainId uint32, template interface{}) {
 	ts.templateslock.Lock()
 	_, exists := ts.templates[version]
-	if exists != true {
+	if !exists {
 		ts.templates[version] = make(map[uint32]map[uint16]interface{})
 	}
 	_, exists = ts.templates[version][obsDomainId]
-	if exists != true {
+	if !exists {
 		ts.templates[version][obsDomainId] = make(map[uint16]interface{})
 	}
 	var templateId uint16
@@ -322,13 +322,13 @@ func DecodeMessage(payload *bytes.Buffer, templates NetFlowTemplateSystem) (inte
 		utils.BinaryDecoder(payload, &packetNFv9.Count, &packetNFv9.SystemUptime, &packetNFv9.UnixSeconds, &packetNFv9.SequenceNumber, &packetNFv9.SourceId)
 		size = packetNFv9.Count
 		packetNFv9.Version = version
-		returnItem = *(&packetNFv9)
+		returnItem = packetNFv9
 		obsDomainId = packetNFv9.SourceId
 	} else if version == 10 {
 		utils.BinaryDecoder(payload, &packetIPFIX.Length, &packetIPFIX.ExportTime, &packetIPFIX.SequenceNumber, &packetIPFIX.ObservationDomainId)
 		size = packetIPFIX.Length
 		packetIPFIX.Version = version
-		returnItem = *(&packetIPFIX)
+		returnItem = packetIPFIX
 		obsDomainId = packetIPFIX.ObservationDomainId
 	} else {
 		return nil, NewErrorVersion(version)

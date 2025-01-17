@@ -44,7 +44,7 @@ func DecodeMessage(payload *bytes.Buffer) (interface{}, error) {
 		)
 
 		if packet.Count > MAX_FLOWS_PER_PACKET {
-			return nil, fmt.Errorf("Invalid amount of flows: %d", packet.Count)
+			return nil, fmt.Errorf("invalid amount of flows: %d", packet.Count)
 		}
 
 		packet.Records = make([]RecordsNetFlowV5, int(packet.Count))

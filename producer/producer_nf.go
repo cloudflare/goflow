@@ -34,7 +34,7 @@ func CreateSamplingSystem() SamplingRateSystem {
 func (s *basicSamplingRateSystem) AddSamplingRate(version uint16, obsDomainId uint32, samplingRate uint32) {
 	s.samplinglock.Lock()
 	_, exists := s.sampling[version]
-	if exists != true {
+	if !exists {
 		s.sampling[version] = make(map[uint32]uint32)
 	}
 	s.sampling[version][obsDomainId] = samplingRate
@@ -119,7 +119,7 @@ func DecodeUNumber(b []byte, out interface{}) error {
 				iter++
 			}
 		} else {
-			return errors.New(fmt.Sprintf("Non-regular number of bytes for a number: %v", l))
+			return fmt.Errorf("non-regular number of bytes for a number: %v", l)
 		}
 	}
 	switch t := out.(type) {
@@ -132,7 +132,7 @@ func DecodeUNumber(b []byte, out interface{}) error {
 	case *uint64:
 		*t = o
 	default:
-		return errors.New("The parameter is not a pointer to a byte/uint16/uint32/uint64 structure")
+		return errors.New("the parameter is not a pointer to a byte/uint16/uint32/uint64 structure")
 	}
 	return nil
 }
@@ -387,15 +387,15 @@ func SplitNetFlowSets(packetNFv9 netflow.NFv9Packet) ([]netflow.DataFlowSet, []n
 	optionsTemplatesFlowSet := make([]netflow.NFv9OptionsTemplateFlowSet, 0)
 	optionsDataFlowSet := make([]netflow.OptionsDataFlowSet, 0)
 	for _, flowSet := range packetNFv9.FlowSets {
-		switch flowSet.(type) {
+		switch flowSet := flowSet.(type) {
 		case netflow.TemplateFlowSet:
-			templatesFlowSet = append(templatesFlowSet, flowSet.(netflow.TemplateFlowSet))
+			templatesFlowSet = append(templatesFlowSet, flowSet)
 		case netflow.NFv9OptionsTemplateFlowSet:
-			optionsTemplatesFlowSet = append(optionsTemplatesFlowSet, flowSet.(netflow.NFv9OptionsTemplateFlowSet))
+			optionsTemplatesFlowSet = append(optionsTemplatesFlowSet, flowSet)
 		case netflow.DataFlowSet:
-			dataFlowSet = append(dataFlowSet, flowSet.(netflow.DataFlowSet))
+			dataFlowSet = append(dataFlowSet, flowSet)
 		case netflow.OptionsDataFlowSet:
-			optionsDataFlowSet = append(optionsDataFlowSet, flowSet.(netflow.OptionsDataFlowSet))
+			optionsDataFlowSet = append(optionsDataFlowSet, flowSet)
 		}
 	}
 	return dataFlowSet, templatesFlowSet, optionsTemplatesFlowSet, optionsDataFlowSet
@@ -407,15 +407,15 @@ func SplitIPFIXSets(packetIPFIX netflow.IPFIXPacket) ([]netflow.DataFlowSet, []n
 	optionsTemplatesFlowSet := make([]netflow.IPFIXOptionsTemplateFlowSet, 0)
 	optionsDataFlowSet := make([]netflow.OptionsDataFlowSet, 0)
 	for _, flowSet := range packetIPFIX.FlowSets {
-		switch flowSet.(type) {
+		switch flowSet := flowSet.(type) {
 		case netflow.TemplateFlowSet:
-			templatesFlowSet = append(templatesFlowSet, flowSet.(netflow.TemplateFlowSet))
+			templatesFlowSet = append(templatesFlowSet, flowSet)
 		case netflow.IPFIXOptionsTemplateFlowSet:
-			optionsTemplatesFlowSet = append(optionsTemplatesFlowSet, flowSet.(netflow.IPFIXOptionsTemplateFlowSet))
+			optionsTemplatesFlowSet = append(optionsTemplatesFlowSet, flowSet)
 		case netflow.DataFlowSet:
-			dataFlowSet = append(dataFlowSet, flowSet.(netflow.DataFlowSet))
+			dataFlowSet = append(dataFlowSet, flowSet)
 		case netflow.OptionsDataFlowSet:
-			optionsDataFlowSet = append(optionsDataFlowSet, flowSet.(netflow.OptionsDataFlowSet))
+			optionsDataFlowSet = append(optionsDataFlowSet, flowSet)
 		}
 	}
 	return dataFlowSet, templatesFlowSet, optionsTemplatesFlowSet, optionsDataFlowSet
@@ -474,7 +474,7 @@ func ProcessMessageNetFlow(msgDec interface{}, samplingRateSys SamplingRateSyste
 			fmsg.SamplingRate = uint64(samplingRate)
 		}
 	default:
-		return flowMessageSet, errors.New("Bad NetFlow/IPFIX version")
+		return flowMessageSet, errors.New("bad NetFlow/IPFIX version")
 	}
 
 	return flowMessageSet, nil

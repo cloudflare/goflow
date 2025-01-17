@@ -2,7 +2,6 @@ package utils
 
 import (
 	"encoding/binary"
-	"errors"
 	"flag"
 	"fmt"
 	"net"
@@ -26,7 +25,7 @@ var (
 func GetServiceAddresses(srv string) (addrs []string, err error) {
 	_, srvs, err := net.LookupSRV("", "", srv)
 	if err != nil {
-		return nil, errors.New(fmt.Sprintf("Service discovery: %v\n", err))
+		return nil, fmt.Errorf("service discovery: %v", err)
 	}
 	for _, srv := range srvs {
 		addrs = append(addrs, net.JoinHostPort(srv.Target, strconv.Itoa(int(srv.Port))))
