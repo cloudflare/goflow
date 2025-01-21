@@ -319,10 +319,6 @@ func ParseSampledHeaderConfig(flowMessage *flowmessage.FlowMessage, sampledHeade
 	return nil
 }
 
-func SearchSFlowSamples(samples []interface{}) []*flowmessage.FlowMessage {
-	return SearchSFlowSamples(samples)
-}
-
 func SearchSFlowSamplesConfig(samples []interface{}, config *SFlowProducerConfig, agent net.IP) []*flowmessage.FlowMessage {
 	flowMessageSet := make([]*flowmessage.FlowMessage, 0)
 
@@ -345,9 +341,10 @@ func SearchSFlowSamplesConfig(samples []interface{}, config *SFlowProducerConfig
 			flowMessage.OutIf = flowSample.OutputIfValue
 		}
 
-		ipNh := net.IP{}
-		ipSrc := net.IP{}
-		ipDst := net.IP{}
+		var ipNh net.IP
+		var ipSrc net.IP
+		var ipDst net.IP
+
 		flowMessage.Packets = 1
 		for _, record := range records {
 			switch recordData := record.Data.(type) {
@@ -425,6 +422,6 @@ func ProcessMessageSFlowConfig(msgDec interface{}, config *SFlowProducerConfig) 
 
 		return flowMessageSet, nil
 	default:
-		return []*flowmessage.FlowMessage{}, errors.New("Bad sFlow version")
+		return []*flowmessage.FlowMessage{}, errors.New("bad sFlow version")
 	}
 }

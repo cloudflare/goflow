@@ -2,7 +2,6 @@ package sflow
 
 import (
 	"bytes"
-	"errors"
 	"fmt"
 
 	"github.com/cloudflare/goflow/v3/decoders/utils"
@@ -214,10 +213,10 @@ func DecodeFlowRecord(header *RecordHeader, payload *bytes.Buffer) (FlowRecord, 
 				return flowRecord, err
 			}
 			if int(extendedGateway.ASPathLength) > payload.Len()-4 {
-				return flowRecord, errors.New(fmt.Sprintf("Invalid AS path length: %v.", extendedGateway.ASPathLength))
+				return flowRecord, fmt.Errorf("invalid AS path length: %v", extendedGateway.ASPathLength)
 			}
 			if extendedGateway.ASPathLength > MAX_AS_PATH_LENGTH {
-				return flowRecord, fmt.Errorf("Invalid AS path length: %d", extendedGateway.ASPathLength)
+				return flowRecord, fmt.Errorf("invalid AS path length: %d", extendedGateway.ASPathLength)
 			}
 			asPath = make([]uint32, extendedGateway.ASPathLength)
 			if len(asPath) > 0 {
@@ -234,11 +233,11 @@ func DecodeFlowRecord(header *RecordHeader, payload *bytes.Buffer) (FlowRecord, 
 			return flowRecord, err
 		}
 		if int(extendedGateway.CommunitiesLength) > payload.Len()-4 {
-			return flowRecord, errors.New(fmt.Sprintf("Invalid Communities length: %v.", extendedGateway.CommunitiesLength))
+			return flowRecord, fmt.Errorf("invalid Communities length: %v", extendedGateway.CommunitiesLength)
 		}
 
 		if extendedGateway.CommunitiesLength > MAX_COMMUNITIES_LENGTH {
-			return flowRecord, fmt.Errorf("Invalid communities length: %d", extendedGateway.CommunitiesLength)
+			return flowRecord, fmt.Errorf("invalid communities length: %d", extendedGateway.CommunitiesLength)
 		}
 		communities := make([]uint32, extendedGateway.CommunitiesLength)
 		if len(communities) > 0 {
@@ -255,7 +254,7 @@ func DecodeFlowRecord(header *RecordHeader, payload *bytes.Buffer) (FlowRecord, 
 
 		flowRecord.Data = extendedGateway
 	default:
-		return flowRecord, errors.New(fmt.Sprintf("Unknown data format %v.", (*header).DataFormat))
+		return flowRecord, fmt.Errorf("unknown data format %v", (*header).DataFormat)
 	}
 	return flowRecord, nil
 }
@@ -301,7 +300,7 @@ func DecodeSample(header *SampleHeader, payload *bytes.Buffer) (interface{}, err
 		}
 		recordsCount = flowSample.FlowRecordsCount
 		if recordsCount > MAX_FLOW_RECORDS {
-			return flowSample, fmt.Errorf("Invalid number of flows records: %d", recordsCount)
+			return flowSample, fmt.Errorf("invalid number of flows records: %d", recordsCount)
 		}
 		flowSample.Records = make([]FlowRecord, recordsCount)
 		sample = flowSample
@@ -316,7 +315,7 @@ func DecodeSample(header *SampleHeader, payload *bytes.Buffer) (interface{}, err
 		}
 
 		if recordsCount > MAX_SAMPLES_PER_PACKET {
-			return flowSample, fmt.Errorf("Invalid number of samples: %d", recordsCount)
+			return flowSample, fmt.Errorf("invalid number of samples: %d", recordsCount)
 		}
 		counterSample.Records = make([]CounterRecord, recordsCount)
 		sample = counterSample
