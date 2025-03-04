@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"math"
 	"sync"
 
 	"github.com/cloudflare/goflow/v3/decoders/utils"
@@ -90,7 +91,7 @@ func DecodeIPFIXOptionsTemplateSet(payload *bytes.Buffer) ([]IPFIXOptionsTemplat
 	return records, nil
 }
 
-func DecodeTemplateSet(payload *bytes.Buffer) ([]TemplateRecord, error) {
+func DecodeNFv9TemplateSet(payload *bytes.Buffer) ([]TemplateRecord, error) {
 	records := make([]TemplateRecord, 0)
 	var err error
 	for payload.Len() >= 4 {
@@ -108,6 +109,38 @@ func DecodeTemplateSet(payload *bytes.Buffer) ([]TemplateRecord, error) {
 		for i := 0; i < int(templateRecord.FieldCount); i++ {
 			field := Field{}
 			err = utils.BinaryDecoder(payload, &field)
+			fields[i] = field
+		}
+		templateRecord.Fields = fields
+		records = append(records, templateRecord)
+	}
+
+	return records, nil
+}
+
+func DecodeIPFIXTemplateSet(payload *bytes.Buffer) ([]TemplateRecord, error) {
+	records := make([]TemplateRecord, 0)
+	var err error
+	for payload.Len() >= 4 {
+		templateRecord := TemplateRecord{}
+		err = utils.BinaryDecoder(payload, &templateRecord.TemplateId, &templateRecord.FieldCount)
+		if err != nil {
+			break
+		}
+
+		if int(templateRecord.FieldCount) < 0 {
+			return records, NewErrorDecodingNetFlow("Error decoding TemplateSet: zero count.")
+		}
+
+		fields := make([]Field, int(templateRecord.FieldCount))
+		for i := 0; i < int(templateRecord.FieldCount); i++ {
+			field := Field{}
+			err = utils.BinaryDecoder(payload, &field)
+			if field.Type > math.MaxInt16 {
+				field.Type = field.Type - math.MaxInt16
+				// Skip Enterprise Number field - rfc7011#section-3.2
+				_ = payload.Next(4)
+			}
 			fields[i] = field
 		}
 		templateRecord.Fields = fields
@@ -347,7 +380,7 @@ func DecodeMessage(payload *bytes.Buffer, templates NetFlowTemplateSystem) (inte
 
 		if fsheader.Id == 0 && version == 9 {
 			templateReader := bytes.NewBuffer(payload.Next(nextrelpos))
-			records, err := DecodeTemplateSet(templateReader)
+			records, err := DecodeNFv9TemplateSet(templateReader)
 			if err != nil {
 				return returnItem, err
 			}
@@ -384,7 +417,7 @@ func DecodeMessage(payload *bytes.Buffer, templates NetFlowTemplateSystem) (inte
 
 		} else if fsheader.Id == 2 && version == 10 {
 			templateReader := bytes.NewBuffer(payload.Next(nextrelpos))
-			records, err := DecodeTemplateSet(templateReader)
+			records, err := DecodeIPFIXTemplateSet(templateReader)
 			if err != nil {
 				return returnItem, err
 			}
