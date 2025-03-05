@@ -13,14 +13,14 @@ var (
 			Name: "flow_traffic_bytes",
 			Help: "Bytes received by the application.",
 		},
-		[]string{"remote_ip", "remote_port", "local_ip", "local_port", "type"},
+		[]string{"remote_ip", "local_ip", "local_port", "type"},
 	)
 	MetricTrafficPackets = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
 			Name: "flow_traffic_packets",
 			Help: "Packets received by the application.",
 		},
-		[]string{"remote_ip", "remote_port", "local_ip", "local_port", "type"},
+		[]string{"remote_ip", "local_ip", "local_port", "type"},
 	)
 	MetricPacketSizeSum = prometheus.NewSummaryVec(
 		prometheus.SummaryOpts{
@@ -28,7 +28,7 @@ var (
 			Help:       "Summary of packet size.",
 			Objectives: map[float64]float64{0.5: 0.05, 0.9: 0.01, 0.99: 0.001},
 		},
-		[]string{"remote_ip", "remote_port", "local_ip", "local_port", "type"},
+		[]string{"remote_ip", "local_ip", "local_port", "type"},
 	)
 	DecoderStats = prometheus.NewCounterVec(
 		prometheus.CounterOpts{
