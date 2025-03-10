@@ -145,12 +145,22 @@ func DecodeFlowRecord(header *RecordHeader, payload *bytes.Buffer) (FlowRecord, 
 		}
 		sampledHeader.HeaderData = payload.Bytes()
 		flowRecord.Data = sampledHeader
+	case FORMAT_ETH:
+		sampledEth := SampledEthernet{
+			SrcMac: make([]byte, 8),
+			DstMac: make([]byte, 8),
+		}
+		err := utils.BinaryDecoder(payload, &(sampledEth.Length), &(sampledEth.SrcMac), &(sampledEth.DstMac), &(sampledEth.EthType))
+		if err != nil {
+			return flowRecord, err
+		}
+		flowRecord.Data = sampledEth
 	case FORMAT_IPV4:
 		sampledIPBase := SampledIP_Base{
 			SrcIP: make([]byte, 4),
 			DstIP: make([]byte, 4),
 		}
-		err := utils.BinaryDecoder(payload, &sampledIPBase)
+		err := utils.BinaryDecoder(payload, &(sampledIPBase.Length), &(sampledIPBase.Protocol), &(sampledIPBase.SrcIP), &(sampledIPBase.DstIP), &(sampledIPBase.SrcPort), &(sampledIPBase.DstPort), &(sampledIPBase.TcpFlags))
 		if err != nil {
 			return flowRecord, err
 		}
@@ -167,7 +177,7 @@ func DecodeFlowRecord(header *RecordHeader, payload *bytes.Buffer) (FlowRecord, 
 			SrcIP: make([]byte, 16),
 			DstIP: make([]byte, 16),
 		}
-		err := utils.BinaryDecoder(payload, &sampledIPBase)
+		err := utils.BinaryDecoder(payload, &(sampledIPBase.Length), &(sampledIPBase.Protocol), &(sampledIPBase.SrcIP), &(sampledIPBase.DstIP), &(sampledIPBase.SrcPort), &(sampledIPBase.DstPort), &(sampledIPBase.TcpFlags))
 		if err != nil {
 			return flowRecord, err
 		}
